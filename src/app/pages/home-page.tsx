@@ -1,3 +1,5 @@
+import { generateVideo } from "../../api/generatevideo";
+import { supabase } from "../../lib/supabase";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -21,6 +23,25 @@ function makeUploadItem(file: File): UploadItem {
 }
 
 export function HomePage() {
+  const uploadFileToSupabase = async (file: File) => {
+  const filePath = `uploads/${Date.now()}-${file.name}`;
+
+  const { error } = await supabase.storage
+    .from("videos")
+    .upload(filePath, file);
+
+  if (error) {
+    console.error("Upload error:", error);
+    return null;
+  }
+
+  const { data } = supabase.storage
+    .from("videos")
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
+
   const draft = getVideoDraft();
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState(draft.prompt);
@@ -89,18 +110,32 @@ export function HomePage() {
       e.target.value = "";
     }
   };
+const handleGenerate = async () => {
+  if (!prompt.trim()) {
+    alert("Enter prompt");
+    return;
+  }
 
-  const handleGenerate = () => {
-    if (prompt.trim()) {
-      saveVideoDraft({
-        prompt,
-        uploadedFiles: uploadedFiles.map((item) => item.file),
-        referenceVideo: referenceVideo?.file ?? null,
-        apiKey: "",
-      });
-      navigate("/processing");
-    }
-  };
+  try {
+    const res = await fetch("http://localhost:5000/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
+
+    const data = await res.json();
+
+    console.log("Response from backend:", data);
+
+    alert(data.result);
+
+  } catch (err) {
+    console.error(err);
+    alert("Error sending prompt");
+  }
+};
 
   const removeFile = (index: number) => {
     setUploadedFiles((prev) => {
