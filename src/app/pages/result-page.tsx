@@ -1,149 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { Download, Sparkles, Share2, Play, Pause } from "lucide-react";
+import { motion } from "motion/react";
+import { useNavigate } from "react-router";
+import { Download, Sparkles, Share2, Play } from "lucide-react";
 import { Button } from "../components/ui/button";
-import { getVideoDraft } from "../temp-video-draft-store";
-
-function formatTime(totalSeconds: number): string {
-  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
-    return "00:00";
-  }
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function getPromptStyle(prompt: string): { label: string; filter: string; playbackRate: number } {
-  const normalized = prompt.toLowerCase();
-
-  if (normalized.includes("cinematic") || normalized.includes("movie")) {
-    return {
-      label: "Cinematic look",
-      filter: "contrast(1.2) saturate(1.15) brightness(0.92)",
-      playbackRate: 1,
-    };
-  }
-
-  if (normalized.includes("warm") || normalized.includes("sunset") || normalized.includes("gold")) {
-    return {
-      label: "Warm grade",
-      filter: "sepia(0.2) saturate(1.3) hue-rotate(-10deg)",
-      playbackRate: 1,
-    };
-  }
-
-  if (normalized.includes("cool") || normalized.includes("night") || normalized.includes("blue")) {
-    return {
-      label: "Cool grade",
-      filter: "contrast(1.1) saturate(1.1) hue-rotate(15deg)",
-      playbackRate: 1,
-    };
-  }
-
-  if (normalized.includes("slow") || normalized.includes("dramatic")) {
-    return {
-      label: "Slow cinematic",
-      filter: "contrast(1.08) saturate(1.05)",
-      playbackRate: 0.85,
-    };
-  }
-
-  if (normalized.includes("fast") || normalized.includes("energetic") || normalized.includes("sports")) {
-    return {
-      label: "Fast-paced",
-      filter: "contrast(1.12) saturate(1.22)",
-      playbackRate: 1.15,
-    };
-  }
-
-  return {
-    label: "Balanced grade",
-    filter: "contrast(1.05) saturate(1.08)",
-    playbackRate: 1,
-  };
-}
 
 export function ResultPage() {
   const navigate = useNavigate();
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const draft = getVideoDraft();
-  const sourceVideo = useMemo(
-    () => draft.uploadedFiles.find((file) => file.type.startsWith("video")) ?? draft.referenceVideo,
-    [draft]
-  );
-  const stylePreset = useMemo(() => getPromptStyle(draft.prompt), [draft.prompt]);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-
-  useEffect(() => {
-    if (!sourceVideo) {
-      setVideoUrl(null);
-      return;
-    }
-
-    const url = URL.createObjectURL(sourceVideo);
-    setVideoUrl(url);
-
-    return () => {
-      URL.revokeObjectURL(url);
-    };
-  }, [sourceVideo]);
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.playbackRate = stylePreset.playbackRate;
-    }
-  }, [stylePreset.playbackRate, videoUrl]);
-
-  const togglePlayback = () => {
-    if (!videoRef.current) {
-      return;
-    }
-
-    if (videoRef.current.paused) {
-      void videoRef.current.play();
-      setIsPlaying(true);
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
 
   const handleDownload = () => {
-    if (!videoUrl || !sourceVideo) {
-      alert("No video found to download. Upload a video first.");
-      return;
-    }
-
-    const anchor = document.createElement("a");
-    anchor.href = videoUrl;
-    anchor.download = sourceVideo.name || "generated-video.mp4";
-    anchor.click();
+    // Simulate download
+    alert("Video download started!");
   };
 
   const handleShare = () => {
-    if (!videoUrl) {
-      alert("No video available to share yet.");
-      return;
-    }
-
-    if (navigator.share) {
-      void navigator
-        .share({
-          title: "My AI Video",
-          text: "Check out my AI-generated video.",
-          url: window.location.href,
-        })
-        .catch(() => {
-          // Ignore cancellation from share dialog.
-        });
-      return;
-    }
-
-    alert("Share is not supported in this browser.");
+    // Simulate share
+    alert("Share options coming soon!");
   };
 
   return (
@@ -188,70 +58,32 @@ export function ResultPage() {
         >
           {/* Video Preview */}
           <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center group">
-            {videoUrl ? (
-              <>
-                <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  className="absolute inset-0 w-full h-full object-contain"
-                  style={{ filter: stylePreset.filter }}
-                  onClick={togglePlayback}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onEnded={() => setIsPlaying(false)}
-                  onLoadedMetadata={(e: React.SyntheticEvent<HTMLVideoElement>) => {
-                    setDuration(e.currentTarget.duration || 0);
-                  }}
-                  onTimeUpdate={(e: React.SyntheticEvent<HTMLVideoElement>) => {
-                    setCurrentTime(e.currentTarget.currentTime || 0);
-                  }}
-                  controls={false}
-                />
+            {/* Mock Video Player */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1]/20 via-[#8b5cf6]/20 to-[#d946ef]/20" />
+            
+            {/* Play Button Overlay */}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative z-10 w-20 h-20 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-2xl group-hover:bg-white transition-colors"
+            >
+              <Play className="w-8 h-8 text-[#6366f1] ml-1" fill="currentColor" />
+            </motion.button>
 
-                <div className="absolute inset-0 bg-gradient-to-br from-[#6366f1]/10 via-[#8b5cf6]/10 to-[#d946ef]/10" />
-
-                {/* Play/Pause Button Overlay */}
-                <motion.button
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={togglePlayback}
-                  className="relative z-10 w-20 h-20 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-2xl group-hover:bg-white transition-colors"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-8 h-8 text-[#6366f1]" fill="currentColor" />
-                  ) : (
-                    <Play className="w-8 h-8 text-[#6366f1] ml-1" fill="currentColor" />
-                  )}
-                </motion.button>
-
-                {/* Video Info */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
-                  <div className="flex items-center justify-between text-white text-sm">
-                    <span>{formatTime(currentTime)}</span>
-                    <div className="flex-1 mx-4 h-1 bg-white/30 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-white rounded-full transition-all"
-                        style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                      />
-                    </div>
-                    <span>{formatTime(duration)}</span>
-                  </div>
+            {/* Mock Video Info */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
+              <div className="flex items-center justify-between text-white text-sm">
+                <span>00:00</span>
+                <div className="flex-1 mx-4 h-1 bg-white/30 rounded-full overflow-hidden">
+                  <div className="h-full w-0 bg-white rounded-full" />
                 </div>
-              </>
-            ) : (
-              <div className="text-center text-white/90 px-6">
-                <p className="text-lg font-medium mb-2">No video available yet</p>
-                <p className="text-sm text-white/70">Upload at least one video before generating.</p>
+                <span>02:34</span>
               </div>
-            )}
+            </div>
 
             {/* Quality Badge */}
             <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs">
               4K • 60fps
-            </div>
-
-            <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs">
-              {stylePreset.label}
             </div>
           </div>
 
@@ -263,13 +95,11 @@ export function ResultPage() {
                 <div className="text-sm text-gray-600">Resolution</div>
               </div>
               <div className="text-center p-4 bg-gradient-to-br from-[#8b5cf6]/5 to-[#8b5cf6]/10 rounded-xl">
-                <div className="text-2xl font-bold text-[#8b5cf6] mb-1">{formatTime(duration)}</div>
+                <div className="text-2xl font-bold text-[#8b5cf6] mb-1">2:34</div>
                 <div className="text-sm text-gray-600">Duration</div>
               </div>
               <div className="text-center p-4 bg-gradient-to-br from-[#d946ef]/5 to-[#d946ef]/10 rounded-xl">
-                <div className="text-2xl font-bold text-[#d946ef] mb-1">
-                  {sourceVideo ? `${(sourceVideo.size / 1024 / 1024).toFixed(1)} MB` : "-"}
-                </div>
+                <div className="text-2xl font-bold text-[#d946ef] mb-1">245 MB</div>
                 <div className="text-sm text-gray-600">File Size</div>
               </div>
             </div>

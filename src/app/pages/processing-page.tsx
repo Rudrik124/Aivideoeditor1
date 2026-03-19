@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { useNavigate } from "react-router";
+import { motion } from "motion/react";
 import { Loader2, Video } from "lucide-react";
 import { Progress } from "../components/ui/progress";
 
@@ -20,15 +20,11 @@ export function ProcessingPage() {
   const [progress, setProgress] = useState(0);
   const [currentStatus, setCurrentStatus] = useState(statusMessages[0]);
   const [statusIndex, setStatusIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     // Simulate progress
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
-        if (isPaused) {
-          return prev;
-        }
         if (prev >= 100) {
           clearInterval(progressInterval);
           setTimeout(() => navigate("/result"), 500);
@@ -39,7 +35,7 @@ export function ProcessingPage() {
     }, 80);
 
     return () => clearInterval(progressInterval);
-  }, [isPaused, navigate]);
+  }, [navigate]);
 
   useEffect(() => {
     // Update status message based on progress
@@ -124,16 +120,6 @@ export function ProcessingPage() {
           <p className="text-center text-gray-500 mt-6 text-sm">
             This usually takes 30-60 seconds. Please don't close this window.
           </p>
-
-          <div className="mt-5 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setIsPaused((prev) => !prev)}
-              className="px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white/70 hover:bg-white transition-colors"
-            >
-              {isPaused ? "Resume" : "Pause"}
-            </button>
-          </div>
 
           {/* Animated Dots */}
           <div className="flex justify-center gap-2 mt-8">
