@@ -83,7 +83,7 @@ export function QuickEditResultScreen() {
               </Button>
 
               <Button
-                onClick={() => navigate("/edit-video/editor")}
+                onClick={() => navigate("/reference-video/setup")}
                 variant="outline"
                 className="h-12 border-2 border-gray-300 hover:border-[#6366f1] hover:text-[#6366f1] rounded-xl"
               >

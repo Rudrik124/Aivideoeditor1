@@ -1,13 +1,14 @@
 import { createBrowserRouter } from "react-router";
 import { VideoTypePage } from "./pages/video-type-page";
 import { HomePage } from "./pages/home-page";
+import { AIGenerativeVideoPage } from "./pages/ai-generative-video-page";
 import { ProcessingPage } from "./pages/processing-page";
 import { ResultPage } from "./pages/result-page";
 
-// Edit Existing Video
-import { EditVideoUploadScreen } from "./pages/edit-video/upload-screen";
-import { EditVideoProcessingScreen } from "./pages/edit-video/processing-screen";
-import { EditVideoDashboard } from "./pages/edit-video/editor-dashboard";
+// Generate Using Reference Video
+import { ReferenceVideoSetupScreen } from "./pages/reference-video/setup-screen";
+import { ReferenceVideoProcessingScreen } from "./pages/reference-video/processing-screen";
+import { ReferenceVideoResultScreen } from "./pages/reference-video/result-screen";
 
 // Images to Video
 import { ImagesToVideoUploadScreen } from "./pages/images-to-video/upload-screen";
@@ -29,6 +30,10 @@ export const router = createBrowserRouter([
   // AI Generated Video (original flow)
   {
     path: "/create",
+    Component: AIGenerativeVideoPage,
+  },
+  {
+    path: "/home",
     Component: HomePage,
   },
   {
@@ -39,18 +44,18 @@ export const router = createBrowserRouter([
     path: "/result",
     Component: ResultPage,
   },
-  // Edit Existing Video
+  // Generate Using Reference Video
   {
-    path: "/edit-video/upload",
-    Component: EditVideoUploadScreen,
+    path: "/reference-video/setup",
+    Component: ReferenceVideoSetupScreen,
   },
   {
-    path: "/edit-video/processing",
-    Component: EditVideoProcessingScreen,
+    path: "/reference-video/processing",
+    Component: ReferenceVideoProcessingScreen,
   },
   {
-    path: "/edit-video/editor",
-    Component: EditVideoDashboard,
+    path: "/reference-video/result",
+    Component: ReferenceVideoResultScreen,
   },
   // Images to Video
   {

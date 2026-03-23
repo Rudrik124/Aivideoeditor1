@@ -12,9 +12,9 @@ const videoTypes = [
     popular: true,
   },
   {
-    id: "edit-existing",
-    title: "Edit Existing Video",
-    description: "Enhance and transform your uploaded videos with AI",
+    id: "reference-video",
+    title: "Generate Using Reference Video",
+    description: "Generate new videos using reference video, prompt, media, and audio",
     icon: FileVideo,
     gradient: "from-[#8b5cf6] to-[#d946ef]",
     popular: false,
@@ -46,8 +46,8 @@ export function VideoTypePage() {
       case "ai-generated":
         navigate("/create");
         break;
-      case "edit-existing":
-        navigate("/edit-video/upload");
+      case "reference-video":
+        navigate("/reference-video/setup");
         break;
       case "media-to-video":
         navigate("/images-to-video/upload");
