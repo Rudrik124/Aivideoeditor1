@@ -4,21 +4,43 @@ import { useNavigate } from "react-router";
 import {
   ArrowLeft,
   AudioLines,
-  Clock3,
   Image as ImageIcon,
+  Instagram,
   Sparkles,
   Upload,
   Video,
+  Youtube,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 
 const ratioOptions = ["16:9", "9:16", "4:3", "3:4", "1:1", "4:5", "2.35:1"];
+const ratioPreviewClasses: Record<string, string> = {
+  "16:9": "w-10 h-6",
+  "9:16": "w-6 h-10",
+  "1:1": "w-8 h-8",
+  "4:3": "w-9 h-7",
+  "3:4": "w-7 h-9",
+  "4:5": "w-7 h-9",
+  "2.35:1": "w-11 h-5",
+};
+
+const getFrameType = (ratio: string) => {
+  if (["9:16", "1:1", "4:5"].includes(ratio)) {
+    return "Instagram";
+  }
+  if (["16:9", "2.35:1"].includes(ratio)) {
+    return "YouTube";
+  }
+  return "Normal";
+};
 
 export function ReferenceVideoSetupScreen() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(1);
+  const [durationSeconds, setDurationSeconds] = useState(0);
   const [selectedRatio, setSelectedRatio] = useState("16:9");
   const [referenceVideo, setReferenceVideo] = useState<File | null>(null);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
@@ -33,14 +55,33 @@ export function ReferenceVideoSetupScreen() {
     [mediaFiles]
   );
 
-  const handleDurationInput = (value: string) => {
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      setDurationMinutes(1);
-      return;
+  const clampDuration = (minutes: number, seconds: number) => {
+    let safeMinutes = Math.max(0, Math.min(3, Math.floor(minutes) || 0));
+    let safeSeconds = Math.max(0, Math.min(59, Math.floor(seconds) || 0));
+    if (safeMinutes === 3) {
+      safeSeconds = 0;
     }
-    const clamped = Math.max(1, Math.min(3, parsed));
-    setDurationMinutes(clamped);
+    return { safeMinutes, safeSeconds };
+  };
+
+  const handleMinutesInput = (value: string) => {
+    const parsed = Number(value);
+    const { safeMinutes, safeSeconds } = clampDuration(
+      Number.isNaN(parsed) ? 0 : parsed,
+      durationSeconds
+    );
+    setDurationMinutes(safeMinutes);
+    setDurationSeconds(safeSeconds);
+  };
+
+  const handleSecondsInput = (value: string) => {
+    const parsed = Number(value);
+    const { safeMinutes, safeSeconds } = clampDuration(
+      durationMinutes,
+      Number.isNaN(parsed) ? 0 : parsed
+    );
+    setDurationMinutes(safeMinutes);
+    setDurationSeconds(safeSeconds);
   };
 
   const handleReferenceVideoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,51 +218,70 @@ export function ReferenceVideoSetupScreen() {
 
           <div className="mb-8">
             <label className="block text-sm mb-3 text-gray-700">Duration selection (manual, max 3 min)</label>
-            <div className="flex flex-col sm:flex-row gap-3">
-              {[1, 2, 3].map((minute) => (
-                <button
-                  key={minute}
-                  onClick={() => setDurationMinutes(minute)}
-                  className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 transition-all ${
-                    durationMinutes === minute
-                      ? "border-[#6366f1] bg-[#6366f1]/10 text-[#6366f1]"
-                      : "border-gray-300 bg-white/40 text-gray-700 hover:border-gray-400"
-                  }`}
-                >
-                  <Clock3 className="w-4 h-4" />
-                  <span>{minute} min</span>
-                </button>
-              ))}
-              <input
-                type="number"
-                min={1}
-                max={3}
-                step={1}
-                value={durationMinutes}
-                onChange={(event) => handleDurationInput(event.target.value)}
-                className="h-12 w-full sm:w-40 rounded-xl border-2 border-gray-300 bg-white/60 px-3 text-sm text-gray-700 focus:outline-none focus:border-[#6366f1]"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-2">Minutes</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={3}
+                  step={1}
+                  value={durationMinutes}
+                  onChange={(event) => handleMinutesInput(event.target.value)}
+                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-2">Seconds</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={59}
+                  step={1}
+                  value={durationSeconds}
+                  onChange={(event) => handleSecondsInput(event.target.value)}
+                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                />
+              </div>
             </div>
           </div>
 
           <div className="mb-8">
             <label className="block text-sm mb-3 text-gray-700">Frame selection</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {ratioOptions.map((ratio) => (
                 <button
                   key={ratio}
                   onClick={() => setSelectedRatio(ratio)}
-                  className={`rounded-xl border-2 p-4 transition-all text-left ${
+                  className={`rounded-xl border-2 p-3 min-h-[96px] transition-all flex flex-col items-center justify-center gap-2 ${
                     selectedRatio === ratio
-                      ? "border-[#6366f1] bg-[#6366f1]/10"
+                      ? "border-[#7478f4] bg-[#ececff]"
                       : "border-gray-300 bg-white/40 hover:border-gray-400"
                   }`}
                 >
-                  <div className="text-sm text-gray-500 mb-2">Aspect Ratio</div>
-                  <div className="text-xl font-semibold text-gray-900">{ratio}</div>
+                  <div
+                    className={`${ratioPreviewClasses[ratio]} relative rounded-sm border-2 flex items-center justify-center ${
+                      selectedRatio === ratio ? "border-[#5f63e6]" : "border-gray-500"
+                    }`}
+                  >
+                    {getFrameType(ratio) === "Instagram" && (
+                      <Instagram className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                    )}
+                    {getFrameType(ratio) === "YouTube" && (
+                      <Youtube className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                    )}
+                    {getFrameType(ratio) === "Normal" && (
+                      <Video className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                    )}
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 leading-none">{ratio}</div>
+                  <div className="text-[11px] text-gray-500 leading-none">{getFrameType(ratio)}</div>
                 </button>
               ))}
             </div>
+            <p className="text-xs text-gray-500 mt-3">
+              Choosing 4:3, 3:4, 4:5, or 2.35:1 may crop some uploaded assets.
+            </p>
           </div>
 
           <Button

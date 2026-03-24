@@ -21,8 +21,8 @@ const videoTypes = [
   },
   {
     id: "media-to-video",
-    title: "Images to Video",
-    description: "Turn your photos and clips into a cinematic video",
+    title: "Direct Pic to Video",
+    description: "Generate video from prompt, picture/video assets, audio, duration, and frame selection",
     icon: Upload,
     gradient: "from-[#d946ef] to-[#ec4899]",
     popular: false,
@@ -184,29 +184,6 @@ export function VideoTypePage() {
           </div>
         </motion.div>
 
-        {/* Testimonial or Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6"
-        >
-          {[
-            { value: "10M+", label: "Videos Created" },
-            { value: "4.9/5", label: "User Rating" },
-            { value: "< 60s", label: "Avg. Processing Time" },
-          ].map((stat, index) => (
-            <div
-              key={index}
-              className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200"
-            >
-              <div className="text-3xl font-bold bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] bg-clip-text text-transparent mb-2">
-                {stat.value}
-              </div>
-              <div className="text-sm text-gray-600">{stat.label}</div>
-            </div>
-          ))}
-        </motion.div>
       </div>
     </div>
   );

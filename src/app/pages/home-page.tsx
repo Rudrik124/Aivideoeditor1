@@ -66,11 +66,67 @@ export function HomePage() {
 		}
 	};
 
-	const handleGenerate = () => {
-		if (prompt.trim()) {
-			navigate("/processing");
+const handleGenerate = async () => {
+  if (!prompt.trim()) {
+    alert("Enter prompt");
+    return;
+  }
+
+  if (uploadedFiles.length === 0) {
+    alert("Upload at least one video");
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+
+    // ✅ send main video file
+    formData.append("file", uploadedFiles[0]);
+
+    // ✅ send prompt
+    formData.append("prompt", prompt);
+
+    // ✅ send selected duration
+    formData.append("duration", String(selectedDuration * 60)); // convert min → seconds
+
+    // ✅ optional reference video
+    if (referenceVideo) {
+      formData.append("reference", referenceVideo);
+    }
+
+		const res = await fetch("/api/generate", {
+      method: "POST",
+      body: formData,
+    });
+
+		const rawBody = await res.text();
+		let data: any = {};
+		if (rawBody) {
+			try {
+				data = JSON.parse(rawBody);
+			} catch {
+				data = { error: rawBody };
+			}
 		}
-	};
+
+    console.log("Backend response:", data);
+
+    if (!data.success) {
+			alert(data.error || `Video generation failed (${res.status})`);
+      return;
+    }
+
+    // ✅ store video path
+    localStorage.setItem("generatedVideo", data.video);
+
+    // ✅ go to result page
+    navigate("/result");
+
+  } catch (err) {
+    console.error(err);
+    alert("Error generating video");
+  }
+};
 
 	const removeFile = (index: number) => {
 		setUploadedFiles((prev) => prev.filter((_, i) => i !== index));

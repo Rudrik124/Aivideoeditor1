@@ -1,57 +1,95 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Upload, Image as ImageIcon, X, ArrowLeft } from "lucide-react";
+import { ArrowLeft, AudioLines, Image as ImageIcon, Instagram, Sparkles, Upload, Video, Youtube } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
 
 export function ImagesToVideoUploadScreen() {
   const navigate = useNavigate();
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [prompt, setPrompt] = useState("");
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [durationMinutes, setDurationMinutes] = useState(1);
+  const [durationSeconds, setDurationSeconds] = useState(0);
+  const [selectedRatio, setSelectedRatio] = useState("16:9");
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
+  const ratioOptions = ["16:9", "9:16", "4:3", "3:4", "1:1", "4:5", "2.35:1"];
+  const ratioPreviewClasses: Record<string, string> = {
+    "16:9": "w-10 h-6",
+    "9:16": "w-6 h-10",
+    "1:1": "w-8 h-8",
+    "4:3": "w-9 h-7",
+    "3:4": "w-7 h-9",
+    "4:5": "w-7 h-9",
+    "2.35:1": "w-11 h-5",
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
+  const getFrameType = (ratio: string) => {
+    if (["9:16", "1:1", "4:5"].includes(ratio)) {
+      return "Instagram";
+    }
+    if (["16:9", "2.35:1"].includes(ratio)) {
+      return "YouTube";
+    }
+    return "Normal";
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter((file) =>
-      file.type.startsWith("image/")
+  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) {
+      return;
+    }
+    const files = Array.from(e.target.files).filter(
+      (file) => file.type.startsWith("image/") || file.type.startsWith("video/")
     );
-    setUploadedImages((prev) => [...prev, ...files]);
+    setMediaFiles((prev) => [...prev, ...files]);
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setUploadedImages((prev) => [...prev, ...files]);
+  const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAudioFile(file);
     }
   };
 
-  const removeImage = (index: number) => {
-    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+  const clampDuration = (minutes: number, seconds: number) => {
+    let safeMinutes = Math.max(0, Math.min(3, Math.floor(minutes) || 0));
+    let safeSeconds = Math.max(0, Math.min(59, Math.floor(seconds) || 0));
+    if (safeMinutes === 3) {
+      safeSeconds = 0;
+    }
+    return { safeMinutes, safeSeconds };
   };
 
-  const handleContinue = () => {
-    if (uploadedImages.length > 0) {
-      navigate("/images-to-video/arrange");
-    }
+  const handleMinutesInput = (value: string) => {
+    const parsed = Number(value);
+    const { safeMinutes, safeSeconds } = clampDuration(
+      Number.isNaN(parsed) ? 0 : parsed,
+      durationSeconds
+    );
+    setDurationMinutes(safeMinutes);
+    setDurationSeconds(safeSeconds);
   };
+
+  const handleSecondsInput = (value: string) => {
+    const parsed = Number(value);
+    const { safeMinutes, safeSeconds } = clampDuration(
+      durationMinutes,
+      Number.isNaN(parsed) ? 0 : parsed
+    );
+    setDurationMinutes(safeMinutes);
+    setDurationSeconds(safeSeconds);
+  };
+
+  const canGenerate = prompt.trim().length > 0 && mediaFiles.length > 0;
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Gradient Background */}
       <div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.1),transparent_50%)] -z-10" />
 
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
-        {/* Back Button */}
+      <div className="container mx-auto px-4 py-12 max-w-5xl">
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -62,130 +100,149 @@ export function ImagesToVideoUploadScreen() {
           <span className="text-sm">Back to selection</span>
         </motion.button>
 
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
+          <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 mb-6">
+            <Sparkles className="w-4 h-4 text-[#6366f1]" />
+            <span className="text-sm text-gray-600">Direct Pic to Video</span>
+          </div>
+
           <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] bg-clip-text text-transparent">
-            Images to Video
+            Direct Pic to Video
           </h1>
-          <p className="text-gray-600">Upload your images to create a stunning video</p>
+          <p className="text-gray-600">Generate video directly with prompt, media, audio, duration, and frame settings</p>
         </motion.div>
 
-        {/* Upload Area */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 p-8"
         >
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 mb-6 ${
-              isDragging
-                ? "border-[#6366f1] bg-[#6366f1]/5"
-                : "border-gray-300 hover:border-gray-400 bg-white/30"
-            }`}
-          >
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleFileInput}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          <div className="mb-8">
+            <label className="block text-sm mb-3 text-gray-700">Space for prompt</label>
+            <Textarea
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder="Describe the video you want to generate"
+              className="min-h-[120px] text-base resize-none rounded-xl border-gray-300 focus:border-[#6366f1] focus:ring-[#6366f1] bg-white/50"
             />
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#6366f1] to-[#d946ef] flex items-center justify-center">
-                <Upload className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <p className="text-lg mb-1">
-                  <span className="font-medium text-[#6366f1]">Click to upload</span> or drag and drop
+          </div>
+
+          <div className="mb-8">
+            <label className="block text-sm mb-3 text-gray-700">Space for pic and video</label>
+            <div className="relative border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl p-5 bg-white/30 transition-colors">
+              <input
+                type="file"
+                multiple
+                accept="image/*,video/*"
+                onChange={handleMediaChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <div className="flex items-center gap-3 text-gray-600">
+                <ImageIcon className="w-5 h-5" />
+                <p className="text-sm">
+                  {mediaFiles.length > 0 ? `${mediaFiles.length} media file(s) selected` : "Upload picture/video files"}
                 </p>
-                <p className="text-sm text-gray-500">PNG, JPG, JPEG (Multiple files allowed)</p>
               </div>
             </div>
           </div>
 
-          {/* Image Grid Preview */}
-          {uploadedImages.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900">
-                  Uploaded Images ({uploadedImages.length})
-                </h3>
+          <div className="mb-8">
+            <label className="block text-sm mb-3 text-gray-700">Space for Audio</label>
+            <div className="relative border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl p-5 bg-white/30 transition-colors">
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={handleAudioChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <div className="flex items-center gap-3 text-gray-600">
+                <AudioLines className="w-5 h-5" />
+                <p className="text-sm truncate">{audioFile ? audioFile.name : "Upload audio file"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <label className="block text-sm mb-3 text-gray-700">Duration selection part</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-2">Minutes</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={3}
+                  step={1}
+                  value={durationMinutes}
+                  onChange={(event) => handleMinutesInput(event.target.value)}
+                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-2">Seconds</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={59}
+                  step={1}
+                  value={durationSeconds}
+                  onChange={(event) => handleSecondsInput(event.target.value)}
+                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <label className="block text-sm mb-3 text-gray-700">Frame selection part</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {ratioOptions.map((ratio) => (
                 <button
-                  onClick={() => setUploadedImages([])}
-                  className="text-sm text-red-500 hover:text-red-600"
+                  key={ratio}
+                  onClick={() => setSelectedRatio(ratio)}
+                  className={`rounded-xl border-2 p-3 min-h-[96px] transition-all flex flex-col items-center justify-center gap-2 ${
+                    selectedRatio === ratio
+                      ? "border-[#7478f4] bg-[#ececff]"
+                      : "border-gray-300 bg-white/40 hover:border-gray-400"
+                  }`}
                 >
-                  Clear all
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {uploadedImages.map((file, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden"
+                  <div
+                    className={`${ratioPreviewClasses[ratio]} relative rounded-sm border-2 flex items-center justify-center ${
+                      selectedRatio === ratio ? "border-[#5f63e6]" : "border-gray-500"
+                    }`}
                   >
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt={`Upload ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button
-                        onClick={() => removeImage(index)}
-                        className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors"
-                      >
-                        <X className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
-                    <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
-                      {index + 1}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                    {getFrameType(ratio) === "Instagram" && (
+                      <Instagram className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                    )}
+                    {getFrameType(ratio) === "YouTube" && (
+                      <Youtube className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                    )}
+                    {getFrameType(ratio) === "Normal" && (
+                      <Video className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                    )}
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 leading-none">{ratio}</div>
+                  <div className="text-[11px] text-gray-500 leading-none">{getFrameType(ratio)}</div>
+                </button>
+              ))}
             </div>
-          )}
+            <p className="text-xs text-gray-500 mt-3">
+              Choosing 4:3, 3:4, 4:5, or 2.35:1 may crop some uploaded assets.
+            </p>
+          </div>
 
-          {/* Continue Button */}
           <Button
-            onClick={handleContinue}
-            disabled={uploadedImages.length === 0}
-            className="w-full h-12 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] hover:opacity-90 transition-opacity rounded-xl disabled:opacity-50"
+            onClick={() => navigate("/images-to-video/preview")}
+            disabled={!canGenerate}
+            className="w-full h-14 text-lg bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] hover:opacity-90 transition-opacity rounded-xl shadow-lg disabled:opacity-50"
           >
-            Continue ({uploadedImages.length} images)
+            <Video className="w-5 h-5 mr-2" />
+            Generate video button
           </Button>
-        </motion.div>
-
-        {/* Tips */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4"
-        >
-          {[
-            { title: "Multiple Images", desc: "Upload 3-50 images for best results" },
-            { title: "High Quality", desc: "Use high-resolution images" },
-            { title: "Auto Order", desc: "We'll arrange them intelligently" },
-          ].map((tip, index) => (
-            <div
-              key={index}
-              className="p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200 text-center"
-            >
-              <p className="font-medium text-gray-900 mb-1">{tip.title}</p>
-              <p className="text-sm text-gray-500">{tip.desc}</p>
-            </div>
-          ))}
         </motion.div>
       </div>
     </div>

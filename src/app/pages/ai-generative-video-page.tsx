@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { ArrowLeft, Clock3, Image as ImageIcon, Sparkles, Video } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, Sparkles, Video } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 
 const ratioOptions = ["16:9", "9:16", "4:3", "3:4", "1:1", "4:5", "2.35:1"];
@@ -11,8 +12,11 @@ export function AIGenerativeVideoPage() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(1);
+  const [durationSeconds, setDurationSeconds] = useState(0);
   const [selectedRatio, setSelectedRatio] = useState("16:9");
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const imagePreviewUrl = useMemo(() => {
     if (!referenceImage) {
@@ -27,21 +31,91 @@ export function AIGenerativeVideoPage() {
     }
   };
 
-  const handleGenerateVideo = () => {
+  const handleGenerateVideo = async () => {
     if (!prompt.trim()) {
+      setErrorMessage("Please enter a prompt.");
       return;
     }
-    navigate("/processing");
+
+    setIsGenerating(true);
+    setErrorMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append("prompt", prompt);
+      formData.append("duration", String(durationMinutes * 60 + durationSeconds));
+      formData.append("frame", selectedRatio);
+
+      if (referenceImage) {
+        formData.append("image", referenceImage);
+      }
+
+      const response = await fetch(`/api/generate`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const rawBody = await response.text();
+      let data: any = {};
+      if (rawBody) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = { error: rawBody };
+        }
+      }
+
+      if (!response.ok || !data.success || !data.video) {
+        const message = data.error || data.detail || `Video generation failed (${response.status}).`;
+        throw new Error(message);
+      }
+
+      localStorage.setItem("generatedVideo", data.video);
+      localStorage.removeItem("generatedVideoError");
+      if (data.storage) {
+        localStorage.setItem("generatedVideoStorage", data.storage);
+      } else {
+        localStorage.removeItem("generatedVideoStorage");
+      }
+
+      navigate("/result");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unexpected generation error.";
+      setErrorMessage(message);
+      localStorage.removeItem("generatedVideo");
+      localStorage.setItem("generatedVideoError", message);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const handleDurationInput = (value: string) => {
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      setDurationMinutes(1);
-      return;
+  const clampDuration = (minutes: number, seconds: number) => {
+    let safeMinutes = Math.max(0, Math.min(3, Math.floor(minutes) || 0));
+    let safeSeconds = Math.max(0, Math.min(59, Math.floor(seconds) || 0));
+    if (safeMinutes === 3) {
+      safeSeconds = 0;
     }
-    const clamped = Math.max(1, Math.min(3, parsed));
-    setDurationMinutes(clamped);
+    return { safeMinutes, safeSeconds };
+  };
+
+  const handleMinutesInput = (value: string) => {
+    const parsed = Number(value);
+    const { safeMinutes, safeSeconds } = clampDuration(
+      Number.isNaN(parsed) ? 0 : parsed,
+      durationSeconds
+    );
+    setDurationMinutes(safeMinutes);
+    setDurationSeconds(safeSeconds);
+  };
+
+  const handleSecondsInput = (value: string) => {
+    const parsed = Number(value);
+    const { safeMinutes, safeSeconds } = clampDuration(
+      durationMinutes,
+      Number.isNaN(parsed) ? 0 : parsed
+    );
+    setDurationMinutes(safeMinutes);
+    setDurationSeconds(safeSeconds);
   };
 
   return (
@@ -108,14 +182,14 @@ export function AIGenerativeVideoPage() {
                 <button
                   key={ratio}
                   onClick={() => setSelectedRatio(ratio)}
-                  className={`rounded-xl border-2 p-4 transition-all text-left ${
+                  className={`rounded-2xl border-2 p-5 min-h-[92px] transition-all flex flex-col items-center justify-center gap-2 ${
                     selectedRatio === ratio
-                      ? "border-[#6366f1] bg-[#6366f1]/10"
+                      ? "border-[#7478f4] bg-[#ececff]"
                       : "border-gray-300 bg-white/40 hover:border-gray-400"
                   }`}
                 >
-                  <div className="text-sm text-gray-500 mb-2">Aspect Ratio</div>
-                  <div className="text-xl font-semibold text-gray-900">{ratio}</div>
+                  <Video className={`w-4 h-4 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                  <div className="text-2xl font-semibold text-gray-900 leading-none">{ratio}</div>
                 </button>
               ))}
             </div>
@@ -169,41 +243,46 @@ export function AIGenerativeVideoPage() {
 
           <div className="mb-8">
             <label className="block text-sm mb-3 text-gray-700">Duration selection (manual, max 3 min)</label>
-            <div className="flex flex-col sm:flex-row gap-3">
-              {[1, 2, 3].map((minute) => (
-                <button
-                  key={minute}
-                  onClick={() => setDurationMinutes(minute)}
-                  className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 transition-all ${
-                    durationMinutes === minute
-                      ? "border-[#6366f1] bg-[#6366f1]/10 text-[#6366f1]"
-                      : "border-gray-300 bg-white/40 text-gray-700 hover:border-gray-400"
-                  }`}
-                >
-                  <Clock3 className="w-4 h-4" />
-                  <span>{minute} min</span>
-                </button>
-              ))}
-              <input
-                type="number"
-                min={1}
-                max={3}
-                step={1}
-                value={durationMinutes}
-                onChange={(event) => handleDurationInput(event.target.value)}
-                className="h-12 w-full sm:w-40 rounded-xl border-2 border-gray-300 bg-white/60 px-3 text-sm text-gray-700 focus:outline-none focus:border-[#6366f1]"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-2">Minutes</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={3}
+                  step={1}
+                  value={durationMinutes}
+                  onChange={(event) => handleMinutesInput(event.target.value)}
+                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-2">Seconds</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={59}
+                  step={1}
+                  value={durationSeconds}
+                  onChange={(event) => handleSecondsInput(event.target.value)}
+                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                />
+              </div>
             </div>
           </div>
 
           <Button
             onClick={handleGenerateVideo}
-            disabled={!prompt.trim()}
+            disabled={!prompt.trim() || isGenerating}
             className="w-full h-14 text-lg rounded-xl bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Video className="w-5 h-5 mr-2" />
-            Generate Video
+            {isGenerating ? "Generating..." : "Generate Video"}
           </Button>
+
+          {errorMessage && (
+            <p className="mt-4 text-sm text-red-600 text-center">{errorMessage}</p>
+          )}
         </motion.div>
       </div>
     </div>
