@@ -85,56 +85,65 @@ export function ImagesToVideoUploadScreen() {
   const canGenerate = prompt.trim().length > 0 && mediaFiles.length > 0;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.1),transparent_50%)] -z-10" />
+    <div 
+      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
+      style={{
+        background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Corner Vignettes */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
+      />
 
-      <div className="container mx-auto px-4 py-12 max-w-5xl">
+      <div className="container mx-auto px-4 py-12 max-w-5xl relative z-10">
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={() => navigate("/")}
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-[#6366f1] transition-colors mb-8"
+          className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to selection</span>
+          <span className="text-sm font-medium">Back to selection</span>
         </motion.button>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 mb-6">
-            <Sparkles className="w-4 h-4 text-[#6366f1]" />
-            <span className="text-sm text-gray-600">Direct Pic to Video</span>
+          <div className="inline-flex items-center gap-2 bg-[#1a1b2e]/60 backdrop-blur-3xl px-6 py-2.5 rounded-full border border-cyan-500/20 mb-6 shadow-[0_4px_30px_rgba(0,0,0,0.2)]">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span className="text-sm font-semibold text-cyan-100 tracking-wide uppercase font-sans tracking-[0.2em]">Direct Pic to Video</span>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             Direct Pic to Video
           </h1>
-          <p className="text-gray-600">Generate video directly with prompt, media, audio, duration, and frame settings</p>
+          <p className="text-[#94a3b8] font-medium text-lg">Generate video directly with prompt, media, audio, duration, and frame settings</p>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 p-8"
+           initial={{ opacity: 0, y: 30 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.2 }}
+           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-8"
         >
           <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Space for prompt</label>
+            <label className="block text-sm font-semibold text-[#cbd5e1] mb-3">Space for prompt</label>
             <Textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Describe the video you want to generate"
-              className="min-h-[120px] text-base resize-none rounded-xl border-gray-300 focus:border-[#6366f1] focus:ring-[#6366f1] bg-white/50"
+               className="min-h-[120px] text-base resize-none rounded-xl border-[#3f4a67] focus:border-cyan-500 focus:ring-cyan-500/20 bg-[#0b0d1f]/60 text-white placeholder:text-[#64748b]"
             />
           </div>
 
           <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Space for pic and video</label>
-            <div className="relative border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl p-5 bg-white/30 transition-colors">
+            <label className="block text-sm font-semibold text-[#cbd5e1] mb-3">Space for pic and video</label>
+            <div className="relative border-2 border-dashed border-[#3f4a67] hover:border-cyan-400/50 rounded-xl p-6 bg-[#0b0d1f]/40 transition-colors">
               <input
                 type="file"
                 multiple
@@ -142,36 +151,36 @@ export function ImagesToVideoUploadScreen() {
                 onChange={handleMediaChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
-              <div className="flex items-center gap-3 text-gray-600">
-                <ImageIcon className="w-5 h-5" />
+              <div className="flex items-center gap-3 text-[#94a3b8] font-medium">
+                <ImageIcon className="w-5 h-5 text-cyan-400" />
                 <p className="text-sm">
-                  {mediaFiles.length > 0 ? `${mediaFiles.length} media file(s) selected` : "Upload picture/video files"}
+                  {mediaFiles.length > 0 ? <span className="text-cyan-400 font-bold">{mediaFiles.length} media file(s) selected</span> : "Upload picture/video files"}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Space for Audio</label>
-            <div className="relative border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl p-5 bg-white/30 transition-colors">
+            <label className="block text-sm font-semibold text-[#cbd5e1] mb-3">Space for Audio</label>
+            <div className="relative border-2 border-dashed border-[#3f4a67] hover:border-cyan-400/50 rounded-xl p-6 bg-[#0b0d1f]/40 transition-colors">
               <input
                 type="file"
                 accept="audio/*"
                 onChange={handleAudioChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
-              <div className="flex items-center gap-3 text-gray-600">
-                <AudioLines className="w-5 h-5" />
-                <p className="text-sm truncate">{audioFile ? audioFile.name : "Upload audio file"}</p>
+              <div className="flex items-center gap-3 text-[#94a3b8] font-medium">
+                <AudioLines className="w-5 h-5 text-cyan-400" />
+                <p className="text-sm truncate">{audioFile ? <span className="text-cyan-400 font-bold">{audioFile.name}</span> : "Upload audio file"}</p>
               </div>
             </div>
           </div>
 
           <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Duration selection part</label>
-            <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm font-semibold text-[#cbd5e1] mb-3">Duration selection part</label>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-gray-500 mb-2">Minutes</label>
+                <label className="block text-xs font-semibold text-[#64748b] mb-2 uppercase tracking-wider">Minutes</label>
                 <Input
                   type="number"
                   min={0}
@@ -179,11 +188,11 @@ export function ImagesToVideoUploadScreen() {
                   step={1}
                   value={durationMinutes}
                   onChange={(event) => handleMinutesInput(event.target.value)}
-                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                  className="h-14 text-base rounded-xl border border-[#3f4a67] focus:border-cyan-500 focus:ring-cyan-500/20 bg-[#0b0d1f]/60 text-white"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-2">Seconds</label>
+                <label className="block text-xs font-semibold text-[#64748b] mb-2 uppercase tracking-wider">Seconds</label>
                 <Input
                   type="number"
                   min={0}
@@ -191,46 +200,46 @@ export function ImagesToVideoUploadScreen() {
                   step={1}
                   value={durationSeconds}
                   onChange={(event) => handleSecondsInput(event.target.value)}
-                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                  className="h-14 text-base rounded-xl border border-[#3f4a67] focus:border-cyan-500 focus:ring-cyan-500/20 bg-[#0b0d1f]/60 text-white"
                 />
               </div>
             </div>
           </div>
 
           <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Frame selection part</label>
+            <label className="block text-sm font-semibold text-[#cbd5e1] mb-3">Frame selection part</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {ratioOptions.map((ratio) => (
                 <button
                   key={ratio}
                   onClick={() => setSelectedRatio(ratio)}
-                  className={`rounded-xl border-2 p-3 min-h-[96px] transition-all flex flex-col items-center justify-center gap-2 ${
+                  className={`rounded-xl border p-4 min-h-[96px] transition-all flex flex-col items-center justify-center gap-2 ${
                     selectedRatio === ratio
-                      ? "border-[#7478f4] bg-[#ececff]"
-                      : "border-gray-300 bg-white/40 hover:border-gray-400"
+                      ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                      : "border-[#3f4a67]/50 bg-[#2d3142]/40 hover:border-cyan-500/30"
                   }`}
                 >
                   <div
                     className={`${ratioPreviewClasses[ratio]} relative rounded-sm border-2 flex items-center justify-center ${
-                      selectedRatio === ratio ? "border-[#5f63e6]" : "border-gray-500"
+                      selectedRatio === ratio ? "border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]" : "border-[#64748b]"
                     }`}
                   >
                     {getFrameType(ratio) === "Instagram" && (
-                      <Instagram className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                      <Instagram className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-cyan-400" : "text-[#64748b]"}`} />
                     )}
                     {getFrameType(ratio) === "YouTube" && (
-                      <Youtube className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                      <Youtube className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-cyan-400" : "text-[#64748b]"}`} />
                     )}
                     {getFrameType(ratio) === "Normal" && (
-                      <Video className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
+                      <Video className={`w-3.5 h-3.5 ${selectedRatio === ratio ? "text-cyan-400" : "text-[#64748b]"}`} />
                     )}
                   </div>
-                  <div className="text-sm font-semibold text-gray-900 leading-none">{ratio}</div>
-                  <div className="text-[11px] text-gray-500 leading-none">{getFrameType(ratio)}</div>
+                  <div className={`text-sm font-bold leading-none ${selectedRatio === ratio ? "text-cyan-100" : "text-white"}`}>{ratio}</div>
+                  <div className={`text-[11px] font-semibold leading-none ${selectedRatio === ratio ? "text-cyan-400" : "text-[#64748b]"}`}>{getFrameType(ratio)}</div>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-3">
+            <p className="text-xs font-semibold text-[#64748b] mt-3">
               Choosing 4:3, 3:4, 4:5, or 2.35:1 may crop some uploaded assets.
             </p>
           </div>
@@ -238,7 +247,7 @@ export function ImagesToVideoUploadScreen() {
           <Button
             onClick={() => navigate("/images-to-video/preview")}
             disabled={!canGenerate}
-            className="w-full h-14 text-lg bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] hover:opacity-90 transition-opacity rounded-xl shadow-lg disabled:opacity-50"
+             className="w-full h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl disabled:opacity-50 disabled:cursor-not-allowed border border-cyan-300/40"
           >
             <Video className="w-5 h-5 mr-2" />
             Generate video button

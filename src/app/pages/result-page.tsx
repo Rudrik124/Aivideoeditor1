@@ -34,55 +34,79 @@ export function ResultPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
+    <div 
+      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
+      style={{
+        background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Corner Vignettes */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
+      />
 
-      <div className="container mx-auto px-4 py-12 md:py-20 max-w-6xl">
+      <div className="container mx-auto px-4 py-12 md:py-20 max-w-6xl relative z-10">
         {/* Success Message */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+           initial={{ opacity: 0, y: -20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-green-50 px-4 py-2 rounded-full border border-green-200 mb-4">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm text-green-700">Video ready!</span>
+          <div className="inline-flex items-center gap-2 bg-emerald-500/10 px-6 py-2.5 rounded-full border border-emerald-500/20 mb-6 shadow-[0_4px_30px_rgba(0,0,0,0.2)]">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
+            <span className="text-sm font-semibold text-emerald-300 tracking-wide uppercase font-sans tracking-[0.1em]">Video ready!</span>
           </div>
 
-          <h1 className="text-4xl font-bold mb-3">
+          <h1 className="text-4xl md:text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             Your Video is Ready 🎬
           </h1>
 
           {storagePath && (
-            <p className="text-sm text-green-700">Saved to Supabase: {storagePath}</p>
+            <p className="text-sm font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-2 inline-block shadow-md">
+              Saved to Supabase: {storagePath}
+            </p>
           )}
         </motion.div>
 
         {/* 🎥 VIDEO PLAYER */}
-        <div className="bg-white rounded-2xl shadow-xl p-4 mb-8">
+        <motion.div
+           initial={{ opacity: 0, scale: 0.95 }}
+           animate={{ opacity: 1, scale: 1 }}
+           transition={{ delay: 0.1 }}
+           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-6 md:p-8 mb-10 overflow-hidden relative"
+        >
           {videoUrl ? (
-            <video
-              src={videoUrl}
-              controls
-              autoPlay
-              className="w-full rounded-xl"
-            />
+            <div className="relative rounded-xl overflow-hidden border border-[#3f4a67]/50 shadow-inner bg-[#0b0d1f]">
+              <video
+                src={videoUrl}
+                controls
+                autoPlay
+                className="w-full relative z-10"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/5 mix-blend-overlay pointer-events-none z-20" />
+            </div>
           ) : (
-            <div className="text-center">
-              <p className="text-gray-500">No video found</p>
+            <div className="text-center py-12">
+              <p className="text-[#94a3b8] font-medium text-lg">No video found</p>
               {generationError && (
-                <p className="text-sm text-red-600 mt-2">{generationError}</p>
+                <p className="text-sm font-semibold text-red-400 mt-4 bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl inline-block shadow-md">{generationError}</p>
               )}
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* ACTION BUTTONS */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.2 }}
+           className="flex flex-col sm:flex-row gap-4 mb-10 justify-center max-w-2xl mx-auto"
+        >
           <Button
             onClick={handleDownload}
-            className="flex-1 h-12 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+             className="flex-1 h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40"
           >
             <Download className="w-5 h-5 mr-2" />
             Download
@@ -91,20 +115,29 @@ export function ResultPage() {
           <Button
             onClick={handleShare}
             variant="outline"
-            className="h-12 px-6"
+             className="flex-1 h-14 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#0b0d1f]/40 shadow-md"
           >
             <Share2 className="w-5 h-5 mr-2" />
             Share
           </Button>
-        </div>
+        </motion.div>
 
         {/* BACK BUTTON */}
-        <div className="text-center">
-          <Button onClick={() => navigate("/")}>
-            <Sparkles className="w-5 h-5 mr-2" />
+        <motion.div
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           transition={{ delay: 0.3 }}
+           className="text-center"
+        >
+          <Button 
+            onClick={() => navigate("/")}
+            variant="outline"
+            className="h-14 px-8 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#1a1b2e]/60 backdrop-blur-xl shadow-lg"
+          >
+            <Sparkles className="w-5 h-5 mr-2 text-cyan-400" />
             Create Another Video
           </Button>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

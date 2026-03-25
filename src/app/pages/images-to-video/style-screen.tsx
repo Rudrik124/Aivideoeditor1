@@ -10,28 +10,28 @@ const videoStyles = [
     title: "Cinematic",
     description: "Epic and dramatic with smooth transitions",
     icon: Film,
-    gradient: "from-[#6366f1] to-[#8b5cf6]",
+    gradient: "from-blue-500 to-cyan-400",
   },
   {
     id: "slideshow",
     title: "Slideshow",
     description: "Classic presentation style",
     icon: Sparkles,
-    gradient: "from-[#8b5cf6] to-[#d946ef]",
+    gradient: "from-cyan-400 to-teal-400",
   },
   {
     id: "travel",
     title: "Travel Vlog",
     description: "Adventure and exploration vibes",
     icon: Plane,
-    gradient: "from-[#d946ef] to-[#ec4899]",
+    gradient: "from-teal-400 to-emerald-400",
   },
   {
     id: "instagram",
     title: "Instagram Reel",
     description: "Trendy and social media ready",
     icon: Instagram,
-    gradient: "from-[#ec4899] to-[#f59e0b]",
+    gradient: "from-pink-500 to-rose-400",
   },
 ];
 
@@ -69,42 +69,51 @@ export function ImagesToVideoStyleScreen() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Gradient Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
+    <div 
+      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
+      style={{
+        background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Corner Vignettes */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
+      />
 
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
+      <div className="container mx-auto px-4 py-12 max-w-6xl relative z-10">
         {/* Back Button */}
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={() => navigate("/images-to-video/arrange")}
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-[#6366f1] transition-colors mb-8"
+          className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to arrangement</span>
+          <span className="text-sm font-medium">Back to arrangement</span>
         </motion.button>
 
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="text-center mb-12"
         >
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             Choose Your Style
           </h1>
-          <p className="text-gray-600">Select video style, transitions, and music</p>
+          <p className="text-[#94a3b8] font-medium text-lg">Select video style, transitions, and music</p>
         </motion.div>
 
         {/* Video Styles */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-8"
+           initial={{ opacity: 0, y: 30 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.1 }}
+           className="mb-8"
         >
-          <h2 className="text-xl font-semibold mb-4 text-gray-900">Video Style</h2>
+          <h2 className="text-xl font-bold mb-4 text-white">Video Style</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {videoStyles.map((style) => {
               const Icon = style.icon;
@@ -112,24 +121,24 @@ export function ImagesToVideoStyleScreen() {
                 <button
                   key={style.id}
                   onClick={() => setSelectedStyle(style.id)}
-                  className={`relative p-6 rounded-xl border-2 transition-all text-left ${
+                  className={`relative p-6 rounded-xl border transition-all text-left ${
                     selectedStyle === style.id
-                      ? "border-[#6366f1] bg-[#6366f1]/5"
-                      : "border-gray-200 hover:border-gray-300 bg-white/80"
+                      ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                      : "border-[#3f4a67]/50 hover:border-cyan-500/30 bg-[#1a1b2e]/60 backdrop-blur-sm"
                   }`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${style.gradient} flex items-center justify-center flex-shrink-0`}>
-                      <Icon className="w-6 h-6 text-white" />
+                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${style.gradient} flex items-center justify-center flex-shrink-0 shadow-md`}>
+                      <Icon className="w-7 h-7 text-white" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">{style.title}</h3>
-                      <p className="text-sm text-gray-600">{style.description}</p>
+                      <h3 className="text-lg font-bold text-white mb-1">{style.title}</h3>
+                      <p className="text-sm text-[#cbd5e1]">{style.description}</p>
                     </div>
                     {selectedStyle === style.id && (
-                      <div className="w-6 h-6 rounded-full bg-[#6366f1] flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-500 flex items-center justify-center flex-shrink-0 shadow-[0_0_10px_rgba(34,211,238,0.5)]">
+                        <svg className="w-4 h-4 text-[#0b0d1f]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                     )}
@@ -142,24 +151,24 @@ export function ImagesToVideoStyleScreen() {
 
         {/* Transitions */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-8"
+           initial={{ opacity: 0, y: 30 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.2 }}
+           className="mb-8"
         >
-          <h2 className="text-xl font-semibold mb-4 text-gray-900">Transition Effects</h2>
+          <h2 className="text-xl font-bold mb-4 text-white">Transition Effects</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {transitions.map((transition) => (
               <button
                 key={transition.id}
                 onClick={() => setSelectedTransition(transition.id)}
-                className={`p-4 rounded-xl border-2 transition-all ${
+                className={`p-4 rounded-xl border transition-all ${
                   selectedTransition === transition.id
-                    ? "border-[#6366f1] bg-[#6366f1]/10 text-[#6366f1]"
-                    : "border-gray-200 hover:border-gray-300 bg-white/80 text-gray-700"
+                    ? "border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                    : "border-[#3f4a67]/50 bg-[#1a1b2e]/40 hover:border-cyan-500/30 text-[#cbd5e1]"
                 }`}
               >
-                <span className="font-medium">{transition.label}</span>
+                <span className="font-semibold">{transition.label}</span>
               </button>
             ))}
           </div>
@@ -167,34 +176,34 @@ export function ImagesToVideoStyleScreen() {
 
         {/* Music Selection */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 p-8 mb-8"
+           initial={{ opacity: 0, y: 30 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.3 }}
+           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-8 mb-8"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <Music className="w-5 h-5 text-[#6366f1]" />
-            <h2 className="text-xl font-semibold text-gray-900">Background Music</h2>
+          <div className="flex items-center gap-2 mb-6">
+            <Music className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-xl font-bold text-white">Background Music</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
             {musicOptions.map((music) => (
               <button
                 key={music.id}
                 onClick={() => setSelectedMusic(music.id)}
-                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                className={`p-4 rounded-xl border transition-all text-left ${
                   selectedMusic === music.id
-                    ? "border-[#6366f1] bg-[#6366f1]/10 text-[#6366f1]"
-                    : "border-gray-200 hover:border-gray-300 bg-white/50 text-gray-700"
+                    ? "border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                    : "border-[#3f4a67]/50 bg-[#2d3142]/40 hover:border-cyan-500/30 text-[#cbd5e1]"
                 }`}
               >
-                <span className="font-medium">{music.label}</span>
+                <span className="font-semibold">{music.label}</span>
               </button>
             ))}
           </div>
 
           {/* Custom Audio Upload */}
-          <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-gray-400 transition-all">
+          <div className="relative border-2 border-dashed border-[#3f4a67] rounded-xl p-6 hover:border-cyan-400/50 transition-all bg-[#0b0d1f]/40">
             <input
               type="file"
               accept="audio/*"
@@ -202,9 +211,9 @@ export function ImagesToVideoStyleScreen() {
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
             <div className="flex items-center justify-center gap-3">
-              <Upload className="w-5 h-5 text-gray-400" />
-              <span className="text-sm text-gray-600">
-                {customAudio ? customAudio.name : "Upload custom audio"}
+              <Upload className="w-5 h-5 text-cyan-400" />
+              <span className="text-sm font-medium text-[#94a3b8]">
+                {customAudio ? <span className="text-cyan-400">✓ {customAudio.name}</span> : "Upload custom audio"}
               </span>
             </div>
           </div>
@@ -212,13 +221,13 @@ export function ImagesToVideoStyleScreen() {
 
         {/* Generate Button */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           transition={{ delay: 0.4 }}
         >
           <Button
             onClick={handleGenerate}
-            className="w-full h-14 text-lg bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] hover:opacity-90 transition-opacity rounded-xl shadow-lg"
+             className="w-full h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40"
           >
             <Sparkles className="w-5 h-5 mr-2" />
             Create Video

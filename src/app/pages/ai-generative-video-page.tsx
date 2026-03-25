@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { ArrowLeft, Image as ImageIcon, Sparkles, Video } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 
 const ratioOptions = ["16:9", "9:16", "4:3", "3:4", "1:1", "4:5", "2.35:1"];
+const particles = Array.from({ length: 40 }); 
 
 export function AIGenerativeVideoPage() {
   const navigate = useNavigate();
@@ -17,6 +18,11 @@ export function AIGenerativeVideoPage() {
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const imagePreviewUrl = useMemo(() => {
     if (!referenceImage) {
@@ -119,12 +125,90 @@ export function AIGenerativeVideoPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.1),transparent_50%)] -z-10" />
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.1),transparent_50%)] -z-10" />
+    <div 
+      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
+      style={{
+        background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Corner Vignettes */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
+      />
 
-      <div className="container mx-auto px-4 py-12 md:py-20 max-w-4xl">
+      {/* Subtle Animated Light Rays */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden mix-blend-screen opacity-20">
+        <motion.div
+           animate={{ opacity: [0.1, 0.25, 0.1], scale: [1, 1.1, 1] }}
+           transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+           className="absolute top-[-20%] left-[-10%] w-[80vw] h-[30vh] bg-gradient-to-r from-transparent via-cyan-500 to-transparent blur-[90px] rotate-[35deg] transform origin-top-left"
+        />
+        <motion.div
+           animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.15, 1] }}
+           transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+           className="absolute bottom-[-20%] right-[-10%] w-[100vw] h-[25vh] bg-gradient-to-r from-transparent via-teal-500 to-transparent blur-[100px] rotate-[-25deg] transform origin-bottom-right"
+        />
+      </div>
+
+      {/* Organic Breathing Glow Pulses */}
+      <motion.div 
+        animate={{ opacity: [0.03, 0.08, 0.03], scale: [1, 1.05, 1] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        className="fixed top-[15%] left-[20%] w-[50%] h-[50%] bg-cyan-600/20 rounded-full blur-[250px] pointer-events-none z-0 mix-blend-screen" 
+      />
+      <motion.div 
+        animate={{ opacity: [0.03, 0.06, 0.03], scale: [1, 1.08, 1] }}
+        transition={{ duration: 16, repeat: Infinity, ease: "easeInOut", delay: 3 }}
+        className="fixed bottom-[10%] right-[15%] w-[60%] h-[60%] bg-teal-600/20 rounded-full blur-[250px] pointer-events-none z-0 mix-blend-screen" 
+      />
+
+      {/* Floating Cyan Particles - Parallax Effect */}
+      {mounted && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 perspective-[1000px]">
+          {particles.map((_, i) => {
+            const isFlare = i % 8 === 0;
+            const size = isFlare ? Math.random() * 40 + 20 : Math.random() * 2 + 1; 
+            const depth = Math.random() * 100 + 50; 
+            
+            return (
+              <motion.div
+                key={i}
+                className="absolute"
+                style={{
+                  width: isFlare ? size : size,
+                  height: isFlare ? 2 : size, 
+                  borderRadius: isFlare ? '100%' : '50%',
+                  backgroundColor: isFlare ? 'rgba(34, 211, 238, 0.15)' : `rgba(165, 243, 252, ${Math.random() * 0.4 + 0.1})`,
+                  filter: isFlare ? 'blur(3px)' : 'blur(0.5px)',
+                  boxShadow: isFlare ? '0 0 20px rgba(34, 211, 238, 0.4)' : 'none',
+                  rotate: isFlare ? Math.random() * 180 : 0
+                }}
+                initial={{
+                  x: Math.random() * window.innerWidth,
+                  y: Math.random() * window.innerHeight,
+                  opacity: 0,
+                  z: depth
+                }}
+                animate={{
+                  y: [null, Math.random() * -150 - 50],
+                  x: [null, (Math.random() - 0.5) * 60],
+                  opacity: isFlare ? [0, 0.4, 0] : [0, 0.6, 0],
+                }}
+                transition={{
+                  duration: Math.random() * 35 + 20, 
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+
+      <div className="container mx-auto px-4 py-12 md:py-20 max-w-4xl relative z-10">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -133,28 +217,30 @@ export function AIGenerativeVideoPage() {
         >
           <button
             onClick={() => navigate("/")}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-[#6366f1] transition-colors"
+            className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-300 transition-colors group"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">Back to selection</span>
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm font-medium tracking-wide">Back to selection</span>
           </button>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="text-center mb-10"
         >
-          <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 mb-6">
-            <Sparkles className="w-4 h-4 text-[#6366f1]" />
-            <span className="text-sm text-gray-600">AI Generative Video</span>
+          <div className="inline-flex items-center gap-2 bg-[#1a1b2e]/60 backdrop-blur-3xl px-6 py-2.5 rounded-full border border-cyan-500/20 mb-6 shadow-[0_4px_30px_rgba(0,0,0,0.2)] hover:bg-[#2d3142]/60 transition-colors cursor-default">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span className="text-sm font-semibold text-cyan-100 tracking-wide uppercase font-sans tracking-[0.2em]">AI Generative Video</span>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] bg-clip-text text-transparent">
-            Generate Video with AI
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter mb-4 selection:bg-cyan-500/30">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
+              Generate Video with AI
+            </span>
           </h1>
-          <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-base md:text-lg text-[#94a3b8] max-w-2xl mx-auto leading-relaxed">
             Add a prompt, optionally upload an image, choose frame settings and duration, then generate.
           </p>
         </motion.div>
@@ -163,63 +249,63 @@ export function AIGenerativeVideoPage() {
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 p-6 md:p-8"
+          className="bg-[#1a1b2e]/40 backdrop-blur-3xl border border-[#3f4a67]/50 rounded-3xl p-6 md:p-10 shadow-[0_8px_30px_rgba(11,13,31,0.5)]"
         >
           <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Enter prompt manually</label>
+            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Enter prompt manually</label>
             <Textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Example: A cinematic fly-through of a futuristic city at sunrise with smooth camera motion and volumetric light."
-              className="min-h-[120px] text-base resize-none rounded-xl border-gray-300 focus:border-[#6366f1] focus:ring-[#6366f1] bg-white/50"
+              className="min-h-[140px] text-base resize-none rounded-2xl border border-[#3f4a67] focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 bg-[#0b0d1f]/50 text-white placeholder:text-slate-500 transition-all shadow-inner"
             />
           </div>
 
           <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Frame selection</label>
-            <div className="grid grid-cols-2 gap-3">
+            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Frame selection</label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {ratioOptions.map((ratio) => (
                 <button
                   key={ratio}
                   onClick={() => setSelectedRatio(ratio)}
                   className={`rounded-2xl border-2 p-5 min-h-[92px] transition-all flex flex-col items-center justify-center gap-2 ${
                     selectedRatio === ratio
-                      ? "border-[#7478f4] bg-[#ececff]"
-                      : "border-gray-300 bg-white/40 hover:border-gray-400"
+                      ? "border-cyan-400 bg-cyan-900/20 shadow-[0_0_15px_rgba(34,211,238,0.15)]"
+                      : "border-[#3f4a67] bg-[#0b0d1f]/40 hover:border-cyan-500/50 hover:bg-[#1a1b2e]/60"
                   }`}
                 >
-                  <Video className={`w-4 h-4 ${selectedRatio === ratio ? "text-[#5f63e6]" : "text-gray-500"}`} />
-                  <div className="text-2xl font-semibold text-gray-900 leading-none">{ratio}</div>
+                  <Video className={`w-5 h-5 transition-colors ${selectedRatio === ratio ? "text-cyan-400" : "text-slate-500"}`} />
+                  <div className={`text-xl font-bold leading-none transition-colors ${selectedRatio === ratio ? "text-white" : "text-slate-400"}`}>{ratio}</div>
                 </button>
               ))}
             </div>
           </div>
 
           <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Add picture (optional)</label>
-            <div className="relative border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl p-6 bg-white/30 transition-colors">
+            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Add picture (optional)</label>
+            <div className="relative border-2 border-dashed border-[#3f4a67] hover:border-cyan-400/80 rounded-2xl p-6 bg-[#0b0d1f]/40 transition-all group">
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               />
 
               {referenceImage ? (
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center justify-between gap-4 relative z-20">
+                  <div className="flex items-center gap-4 min-w-0">
                     {imagePreviewUrl ? (
                       <img
                         src={imagePreviewUrl}
                         alt="Reference"
-                        className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                        className="w-14 h-14 rounded-xl object-cover border border-[#3f4a67]"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200" />
+                      <div className="w-14 h-14 rounded-xl bg-[#1a1b2e] border border-[#3f4a67]" />
                     )}
                     <div className="min-w-0">
-                      <p className="text-sm text-gray-800 truncate">{referenceImage.name}</p>
-                      <p className="text-xs text-gray-500">Optional image ready</p>
+                      <p className="text-sm font-semibold text-white truncate">{referenceImage.name}</p>
+                      <p className="text-xs text-cyan-400">Optional image ready</p>
                     </div>
                   </div>
                   <button
@@ -227,25 +313,25 @@ export function AIGenerativeVideoPage() {
                       event.stopPropagation();
                       setReferenceImage(null);
                     }}
-                    className="text-gray-500 hover:text-red-500 transition-colors"
+                    className="text-slate-400 hover:text-red-400 transition-colors px-3 py-1 rounded-lg hover:bg-red-500/10 z-20"
                   >
                     Remove
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center justify-center gap-3 text-gray-500">
-                  <ImageIcon className="w-5 h-5" />
-                  <p className="text-sm">Click to upload an optional image reference</p>
+                <div className="flex items-center justify-center gap-3 text-slate-500 group-hover:text-cyan-400 transition-colors">
+                  <ImageIcon className="w-6 h-6" />
+                  <p className="text-sm font-medium">Click to upload an optional image reference</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="mb-8">
-            <label className="block text-sm mb-3 text-gray-700">Duration selection (manual, max 3 min)</label>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="mb-10">
+            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Duration selection (manual, max 3 min)</label>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-gray-500 mb-2">Minutes</label>
+                <label className="block text-xs uppercase tracking-wider text-slate-500 mb-2 font-semibold">Minutes</label>
                 <Input
                   type="number"
                   min={0}
@@ -253,11 +339,11 @@ export function AIGenerativeVideoPage() {
                   step={1}
                   value={durationMinutes}
                   onChange={(event) => handleMinutesInput(event.target.value)}
-                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                  className="h-12 rounded-xl border border-[#3f4a67] bg-[#0b0d1f]/50 text-white font-semibold text-lg focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all text-center"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-2">Seconds</label>
+                <label className="block text-xs uppercase tracking-wider text-slate-500 mb-2 font-semibold">Seconds</label>
                 <Input
                   type="number"
                   min={0}
@@ -265,7 +351,7 @@ export function AIGenerativeVideoPage() {
                   step={1}
                   value={durationSeconds}
                   onChange={(event) => handleSecondsInput(event.target.value)}
-                  className="h-12 rounded-xl border-2 border-gray-300 bg-white/60"
+                  className="h-12 rounded-xl border border-[#3f4a67] bg-[#0b0d1f]/50 text-white font-semibold text-lg focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all text-center"
                 />
               </div>
             </div>
@@ -274,14 +360,14 @@ export function AIGenerativeVideoPage() {
           <Button
             onClick={handleGenerateVideo}
             disabled={!prompt.trim() || isGenerating}
-            className="w-full h-14 text-lg rounded-xl bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-16 text-lg rounded-2xl bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 transition-all shadow-[0_4px_20px_rgba(34,211,238,0.3)] hover:shadow-[0_8px_30px_rgba(34,211,238,0.4)] disabled:opacity-50 disabled:cursor-not-allowed text-[#0b0d1f] font-bold"
           >
-            <Video className="w-5 h-5 mr-2" />
+            <Video className="w-5 h-5 mr-3" />
             {isGenerating ? "Generating..." : "Generate Video"}
           </Button>
 
           {errorMessage && (
-            <p className="mt-4 text-sm text-red-600 text-center">{errorMessage}</p>
+            <p className="mt-6 text-sm text-red-400 text-center font-medium bg-red-500/10 border border-red-500/20 py-2 rounded-lg">{errorMessage}</p>
           )}
         </motion.div>
       </div>

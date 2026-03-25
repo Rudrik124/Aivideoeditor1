@@ -15,39 +15,41 @@ export function QuickEditProcessingScreen() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center">
-      {/* Gradient Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
+    <div
+      className="min-h-screen relative overflow-hidden flex items-center justify-center font-sans selection:bg-cyan-500/30 selection:text-white"
+      style={{
+        background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Corner Vignettes */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
+      />
 
-      <div className="container mx-auto px-4 max-w-2xl">
+      <div className="container mx-auto px-4 max-w-2xl relative z-10">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 p-12 text-center"
+          className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-12 text-center"
         >
           {/* Animated Icon */}
           <motion.div
-            animate={{
-              scale: [1, 1.2, 1],
-              rotate: [0, 180, 360],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-            className="w-24 h-24 mx-auto mb-8 rounded-full bg-gradient-to-br from-[#f59e0b] to-[#ef4444] flex items-center justify-center shadow-lg"
+            animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            className="w-24 h-24 mx-auto mb-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)]"
           >
-            <Zap className="w-12 h-12 text-white" fill="currentColor" />
+            <Zap className="w-12 h-12 text-[#0b0d1f]" fill="currentColor" />
           </motion.div>
 
           {/* Title */}
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] bg-clip-text text-transparent">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             AI is Editing Your Video
           </h2>
 
           {/* Subtitle */}
-          <p className="text-gray-600 mb-8">
+          <p className="text-[#94a3b8] mb-8 font-medium">
             Please wait while we work our magic...
           </p>
 
@@ -56,16 +58,9 @@ export function QuickEditProcessingScreen() {
             {[0, 1, 2, 3, 4].map((i) => (
               <motion.div
                 key={i}
-                animate={{
-                  scale: [1, 1.5, 1],
-                  opacity: [0.3, 1, 0.3],
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  delay: i * 0.2,
-                }}
-                className="w-2 h-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6]"
+                animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                className="w-2 h-2 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]"
               />
             ))}
           </div>
@@ -86,8 +81,8 @@ export function QuickEditProcessingScreen() {
                 transition={{ delay: step.delay }}
                 className="flex items-center gap-3"
               >
-                <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] animate-pulse" />
-                <span className="text-sm text-gray-600">{step.label}</span>
+                <div className="w-2 h-2 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.4)]" />
+                <span className="text-sm font-medium text-[#cbd5e1]">{step.label}</span>
               </motion.div>
             ))}
           </div>
@@ -97,10 +92,11 @@ export function QuickEditProcessingScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.5 }}
-            className="mt-8 text-sm text-gray-500"
+            className="mt-8 text-sm font-medium text-[#64748b]"
           >
             This usually takes less than 2 minutes
           </motion.div>
+
         </motion.div>
       </div>
     </div>

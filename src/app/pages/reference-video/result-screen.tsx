@@ -7,45 +7,57 @@ export function ReferenceVideoResultScreen() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
+    <div 
+      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
+      style={{
+        background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Corner Vignettes */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
+      />
 
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
+      <div className="container mx-auto px-4 py-12 max-w-4xl relative z-10">
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={() => navigate("/")}
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-[#6366f1] transition-colors mb-8"
+          className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to selection</span>
+          <span className="text-sm font-medium">Back to selection</span>
         </motion.button>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 p-6 md:p-8"
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-6 md:p-8"
         >
-          <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] bg-clip-text text-transparent">
+          <h1 className="text-3xl md:text-4xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             Reference Video Generated
           </h1>
-          <p className="text-gray-600 mb-8">Your generated video is ready for preview and export.</p>
+          <p className="text-[#94a3b8] mb-8 font-medium">Your generated video is ready for preview and export.</p>
 
-          <div className="aspect-video rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 mb-8 flex items-center justify-center">
-            <Video className="w-14 h-14 text-white/80" />
+          {/* Video Container */}
+          <div className="relative aspect-video rounded-xl bg-[#0b0d1f] flex items-center justify-center mb-8 border border-[#3f4a67]/50 shadow-inner overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-teal-500/5 to-cyan-500/10 mix-blend-overlay" />
+            <Video className="w-14 h-14 text-cyan-500/50 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] group-hover:text-cyan-400 transition-colors relative z-10" />
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button className="h-11 px-5 bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] hover:opacity-90">
-              <Download className="w-4 h-4 mr-2" />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button className="flex-1 h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40">
+              <Download className="w-5 h-5 mr-2" />
               Download
             </Button>
             <Button
               variant="outline"
               onClick={() => navigate("/reference-video/setup")}
-              className="h-11 px-5 border-gray-300 hover:border-[#6366f1] hover:text-[#6366f1]"
+               className="h-14 px-8 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#0b0d1f]/40"
             >
-              <RefreshCcw className="w-4 h-4 mr-2" />
+              <RefreshCcw className="w-5 h-5 mr-2" />
               Generate Again
             </Button>
           </div>
