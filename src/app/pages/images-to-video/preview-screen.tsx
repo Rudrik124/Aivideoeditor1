@@ -85,7 +85,11 @@ export function ImagesToVideoPreviewScreen() {
            className="text-center"
         >
           <Button
+<<<<<<< Updated upstream
             onClick={() => navigate("/tools")}
+=======
+            onClick={() => navigate("/features")}
+>>>>>>> Stashed changes
             variant="outline"
             className="h-14 px-8 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#1a1b2e]/60 backdrop-blur-xl shadow-lg"
           >

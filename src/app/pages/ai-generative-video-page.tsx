@@ -1,10 +1,13 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
-import { ArrowLeft, Image as ImageIcon, Sparkles, Video } from "lucide-react";
+import { ArrowLeft, Sparkles, Video } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
+import { useAuth } from "../context/auth-context";
+import { LoginModal } from "./login-modal";
+import { LoadingModal, type LoadingState } from "../components/loading-modal";
 
 const ratioOptions = ["16:9", "9:16", "4:3", "3:4", "1:1", "4:5", "2.35:1"];
 const particles = Array.from({ length: 40 });
@@ -19,46 +22,89 @@ const premiumPrompts = [
 
 export function AIGenerativeVideoPage() {
   const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(1);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [selectedRatio, setSelectedRatio] = useState("16:9");
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [loadingState, setLoadingState] = useState<LoadingState>(null);
+  const [loadingMessage, setLoadingMessage] = useState("");
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    // Clear any stale error messages when page loads
+    setErrorMessage("");
+    // Debug: Log auth status
+    console.log("✅ AI Page Loaded. isLoggedIn:", isLoggedIn);
   }, []);
 
+<<<<<<< Updated upstream
   const handleSurpriseMe = () => {
     const randomPrompt = premiumPrompts[Math.floor(Math.random() * premiumPrompts.length)];
     setPrompt(randomPrompt);
   };
+=======
+
+>>>>>>> Stashed changes
 
   const handleGenerateVideo = async () => {
+    // Check if user is logged in
+    console.log("🎬 Generate Video clicked. isLoggedIn:", isLoggedIn);
+    
+    if (!isLoggedIn) {
+      console.log("❌ Not logged in. Showing login modal.");
+      setErrorMessage(""); // Clear any previous error messages
+      setIsLoginOpen(true);
+      return;
+    }
+
+    console.log("✅ User is logged in. Proceeding with video generation.");
+
     if (!prompt.trim()) {
+      console.log("⚠️ No prompt entered.");
       setErrorMessage("Please enter a prompt.");
       return;
     }
 
     setIsGenerating(true);
     setErrorMessage("");
+    setLoadingState("loading");
+    setLoadingMessage("Generating your video...");
 
     try {
-      const formData = new FormData();
-      formData.append("prompt", prompt);
-      formData.append("duration", String(durationMinutes * 60 + durationSeconds));
-      formData.append("frame", selectedRatio);
+      console.log("🎬 Building request with:", {
+        prompt,
+        duration: durationMinutes * 60 + durationSeconds,
+        frame: selectedRatio,
+      });
 
+<<<<<<< Updated upstream
       // No reference image in this strict 3-column layout
+=======
+      const requestPayload = {
+        prompt: prompt.trim(),
+        duration: durationMinutes * 60 + durationSeconds,
+        frame: selectedRatio,
+      };
+
+      console.log("📤 Sending POST /api/generate with:", JSON.stringify(requestPayload));
+>>>>>>> Stashed changes
 
       const response = await fetch(`/api/generate`, {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestPayload),
       });
 
       const rawBody = await response.text();
+      console.log(`📥 Response status: ${response.status}, body:`, rawBody);
+
       let data: any = {};
       if (rawBody) {
         try {
@@ -68,10 +114,19 @@ export function AIGenerativeVideoPage() {
         }
       }
 
+      console.log("📊 Parsed response:", data);
+
       if (!response.ok || !data.success || !data.video) {
         const message = data.error || data.detail || `Video generation failed (${response.status}).`;
+        console.error("❌ Generation failed:", message);
         throw new Error(message);
       }
+
+      console.log("✅ Generation successful:", data.video);
+
+      // Show success state
+      setLoadingState("success");
+      setLoadingMessage("Video generated successfully!");
 
       localStorage.setItem("generatedVideo", data.video);
       localStorage.removeItem("generatedVideoError");
@@ -81,9 +136,16 @@ export function AIGenerativeVideoPage() {
         localStorage.removeItem("generatedVideoStorage");
       }
 
-      navigate("/result");
+      // Wait 2 seconds then navigate (modal auto-dismisses)
+      setTimeout(() => {
+        setLoadingState(null);
+        navigate("/result");
+      }, 2500);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unexpected generation error.";
+      console.error("❌ Error in video generation:", message);
+      setLoadingState("error");
+      setLoadingMessage(message);
       setErrorMessage(message);
       localStorage.removeItem("generatedVideo");
       localStorage.setItem("generatedVideoError", message);
@@ -235,7 +297,11 @@ export function AIGenerativeVideoPage() {
           className="mb-8"
         >
           <button
+<<<<<<< Updated upstream
             onClick={() => navigate("/tools")}
+=======
+            onClick={() => navigate("/features")}
+>>>>>>> Stashed changes
             className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-300 transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -332,6 +398,7 @@ export function AIGenerativeVideoPage() {
             </div>
           </motion.div>
 
+<<<<<<< Updated upstream
           {/* RIGHT: Duration & Generate Element */}
           <motion.div
             variants={{
@@ -353,6 +420,15 @@ export function AIGenerativeVideoPage() {
             <div className="grid grid-cols-2 gap-4 mb-6 mt-2">
               <div className="group/input">
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-[#94a3b8] mb-3 font-bold group-focus-within/input:text-cyan-400 transition-colors">Minutes (Max 3)</label>
+=======
+
+
+          <div className="mb-10">
+            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Duration selection (manual, max 3 min)</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-slate-500 mb-2 font-semibold">Minutes</label>
+>>>>>>> Stashed changes
                 <Input
                   type="number"
                   min={0}
@@ -409,6 +485,24 @@ export function AIGenerativeVideoPage() {
           </motion.div>
         </motion.div>
       </div>
+
+      {/* Loading Modal for Video Generation */}
+      <LoadingModal
+        state={loadingState}
+        message={loadingMessage}
+        onDismiss={() => {
+          setLoadingState(null);
+          setErrorMessage("");
+        }}
+      />
+
+      {/* Login Modal for Video Generation */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        customTitle="Login Required"
+        customMessage="Please login to generate your video"
+      />
     </div>
   );
 }

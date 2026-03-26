@@ -1,7 +1,12 @@
 import { createBrowserRouter } from "react-router";
 import { VideoTypePage } from "./pages/video-type-page";
+<<<<<<< Updated upstream
 import { ToolsSelectionPage } from "./pages/tools-selection-page";
+=======
+import { FeaturesSelectionPage } from "./pages/features-selection";
+>>>>>>> Stashed changes
 import { HomePage } from "./pages/home-page";
+import { AuthCallbackPage } from "./pages/auth-callback";
 import { AIGenerativeVideoPage } from "./pages/ai-generative-video-page";
 import { ProcessingPage } from "./pages/processing-page";
 import { ResultPage } from "./pages/result-page";
@@ -29,8 +34,17 @@ export const router = createBrowserRouter([
     Component: VideoTypePage,
   },
   {
+<<<<<<< Updated upstream
     path: "/tools",
     Component: ToolsSelectionPage,
+=======
+    path: "/auth/callback",
+    Component: AuthCallbackPage,
+  },
+  {
+    path: "/features",
+    Component: FeaturesSelectionPage,
+>>>>>>> Stashed changes
   },
   // AI Generated Video (original flow)
   {

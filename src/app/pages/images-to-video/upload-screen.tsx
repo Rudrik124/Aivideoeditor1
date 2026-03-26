@@ -102,7 +102,11 @@ export function ImagesToVideoUploadScreen() {
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
+<<<<<<< Updated upstream
           onClick={() => navigate("/tools")}
+=======
+          onClick={() => navigate("/features")}
+>>>>>>> Stashed changes
           className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />

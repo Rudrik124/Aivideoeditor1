@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,8 +18,17 @@ import {
 	ChevronRight,
 	Image as ImageIcon
 } from "lucide-react";
+=======
+import * as React from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Upload, Sparkles, Video, Image as ImageIcon, Clock, ArrowLeft, LogOut } from "lucide-react";
+>>>>>>> Stashed changes
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
+import { useAuth } from "../context/auth-context";
+import { SuccessToast } from "../components/success-toast";
 
 const durations = [
 	{ value: 1, label: "1 min" },
@@ -31,13 +41,27 @@ const particles = Array.from({ length: 40 });
 
 export function HomePage() {
 	const navigate = useNavigate();
+	const { isLoggedIn, logout } = useAuth();
 	const [prompt, setPrompt] = useState("");
 	const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 	const [referenceVideo, setReferenceVideo] = useState<File | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const [isRefDragging, setIsRefDragging] = useState(false);
 	const [selectedDuration, setSelectedDuration] = useState(2);
+<<<<<<< Updated upstream
 	const [uploading, setUploading] = useState(false);
+=======
+	const [showLoginSuccess, setShowLoginSuccess] = useState(false);
+
+	useEffect(() => {
+		// Check if user just logged in
+		const loginFlag = localStorage.getItem("justLoggedIn");
+		if (loginFlag && isLoggedIn) {
+			setShowLoginSuccess(true);
+			localStorage.removeItem("justLoggedIn");
+		}
+	}, [isLoggedIn]);
+>>>>>>> Stashed changes
 
 	const handleDragOver = (e: React.DragEvent<HTMLDivElement>, isReference = false) => {
 		e.preventDefault();
@@ -84,6 +108,7 @@ export function HomePage() {
 		}
 	};
 
+<<<<<<< Updated upstream
 	const removeFile = (index: number) => {
 		setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
 	};
@@ -176,6 +201,58 @@ export function HomePage() {
 
 					<button className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">Documentation</button>
 				</div>
+=======
+const handleGenerate = async () => {
+  if (!prompt.trim()) {
+    alert("Enter prompt");
+    return;
+  }
+
+  try {
+    const requestPayload = {
+      prompt: prompt.trim(),
+      duration: selectedDuration * 60,
+      frame: "16:9",
+    };
+
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestPayload),
+    });
+
+    const rawBody = await res.text();
+    let data: any = {};
+    if (rawBody) {
+      try {
+        data = JSON.parse(rawBody);
+      } catch {
+        data = { error: rawBody };
+      }
+    }
+
+    console.log("Backend response:", data);
+
+    if (!data.success) {
+      alert(data.error || `Video generation failed (${res.status})`);
+      return;
+    }
+
+    localStorage.setItem("generatedVideo", data.video);
+    navigate("/result");
+  } catch (err) {
+    console.error(err);
+    alert("Error generating video");
+  }
+};
+
+return (
+		<div className="min-h-screen relative overflow-hidden">
+			{/* Gradient Background */}
+			<div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
+			<div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.1),transparent_50%)] -z-10" />
+			<div className="fixed inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.1),transparent_50%)] -z-10" />
+>>>>>>> Stashed changes
 
 				{/* Back Button */}
 				<motion.div
@@ -235,6 +312,7 @@ export function HomePage() {
 						/>
 					</div>
 
+<<<<<<< Updated upstream
 					{/* Upload Area */}
 					<div className="mb-10">
 						<label className="block text-sm font-semibold mb-4 text-gray-300">
@@ -305,6 +383,9 @@ export function HomePage() {
 							)}
 						</AnimatePresence>
 					</div>
+=======
+
+>>>>>>> Stashed changes
 
 					{/* Duration Selection */}
 					<div className="mb-10">
@@ -351,6 +432,18 @@ export function HomePage() {
 
 
 			</div>
+<<<<<<< Updated upstream
 		</motion.div>
+=======
+
+			{/* Success Toast */}
+			{showLoginSuccess && (
+				<SuccessToast
+					message="✅ Login successful! Welcome back!"
+					onDismiss={() => setShowLoginSuccess(false)}
+				/>
+			)}
+		</div>
+>>>>>>> Stashed changes
 	);
 }
