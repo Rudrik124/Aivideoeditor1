@@ -1,5 +1,4 @@
-<<<<<<< Updated upstream
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -16,15 +15,9 @@ import {
 	MonitorPlay,
 	CheckCircle2,
 	ChevronRight,
+	LogOut,
 	Image as ImageIcon
 } from "lucide-react";
-=======
-import * as React from "react";
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Upload, Sparkles, Video, Image as ImageIcon, Clock, ArrowLeft, LogOut } from "lucide-react";
->>>>>>> Stashed changes
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../context/auth-context";
@@ -48,9 +41,7 @@ export function HomePage() {
 	const [isDragging, setIsDragging] = useState(false);
 	const [isRefDragging, setIsRefDragging] = useState(false);
 	const [selectedDuration, setSelectedDuration] = useState(2);
-<<<<<<< Updated upstream
 	const [uploading, setUploading] = useState(false);
-=======
 	const [showLoginSuccess, setShowLoginSuccess] = useState(false);
 
 	useEffect(() => {
@@ -61,7 +52,6 @@ export function HomePage() {
 			localStorage.removeItem("justLoggedIn");
 		}
 	}, [isLoggedIn]);
->>>>>>> Stashed changes
 
 	const handleDragOver = (e: React.DragEvent<HTMLDivElement>, isReference = false) => {
 		e.preventDefault();
@@ -108,11 +98,6 @@ export function HomePage() {
 		}
 	};
 
-<<<<<<< Updated upstream
-	const removeFile = (index: number) => {
-		setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
-	};
-
 	const handleGenerate = async () => {
 		if (!prompt.trim() || uploadedFiles.length === 0) {
 			alert("Please provide a prompt and at least one media file.");
@@ -122,31 +107,59 @@ export function HomePage() {
 		setUploading(true);
 
 		try {
-			// Simulate API call
-			await new Promise(resolve => setTimeout(resolve, 2000));
-			localStorage.setItem("generatedVideo", "/sample-video.mp4"); // Placeholder
+			const requestPayload = {
+				prompt: prompt.trim(),
+				duration: selectedDuration * 60,
+				frame: "16:9",
+			};
+
+			const res = await fetch("/api/generate", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(requestPayload),
+			});
+
+			const rawBody = await res.text();
+			let data: any = {};
+			if (rawBody) {
+				try {
+					data = JSON.parse(rawBody);
+				} catch {
+					data = { error: rawBody };
+				}
+			}
+
+			console.log("Backend response:", data);
+
+			if (!data.success) {
+				alert(data.error || `Video generation failed (${res.status})`);
+				return;
+			}
+
+			localStorage.setItem("generatedVideo", data.video);
 			navigate("/result");
 		} catch (err) {
 			console.error(err);
-			alert("Failed to generate video");
+			alert("Error generating video");
 		} finally {
 			setUploading(false);
 		}
 	};
 
 	return (
-		<motion.div
-			className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20 flex flex-col"
-			animate={{
-				background: [
-					'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
-					'linear-gradient(135deg, #1a1b2e 0%, #2d3142 30%, #3f4a67 60%, #0b0d1f 85%, #2d3142 100%)',
-					'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
-				]
-			}}
-			transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-			style={{ backgroundAttachment: 'fixed' }}
-		>
+		<>
+			<motion.div
+				className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20 flex flex-col"
+				animate={{
+					background: [
+						'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+						'linear-gradient(135deg, #1a1b2e 0%, #2d3142 30%, #3f4a67 60%, #0b0d1f 85%, #2d3142 100%)',
+						'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+					]
+				}}
+				transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+				style={{ backgroundAttachment: 'fixed' }}
+			>
 			{/* Focal Radial Glow (Behind Title) */}
 			<div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[60%] h-[40%] bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none z-0" />
 
@@ -189,7 +202,7 @@ export function HomePage() {
 						initial={{ opacity: 0, x: -20 }}
 						animate={{ opacity: 1, x: 0 }}
 						className="flex items-center gap-2 group cursor-pointer"
-						onClick={() => navigate("/tools")}
+						onClick={() => navigate("/features")}
 					>
 						<div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] group-hover:scale-105 transition-all duration-300 border border-white/20 backdrop-blur-md">
 							<Sparkles className="w-6 h-6 text-[#0b0d1f]" />
@@ -199,60 +212,19 @@ export function HomePage() {
 						</span>
 					</motion.div>
 
-					<button className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">Documentation</button>
+					<div className="flex items-center gap-6">
+						{isLoggedIn && (
+							<button 
+								onClick={() => logout()}
+								className="text-sm font-semibold text-gray-400 hover:text-white transition-all flex items-center gap-2"
+							>
+								<LogOut className="w-4 h-4" />
+								Logout
+							</button>
+						)}
+						<button className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">Documentation</button>
+					</div>
 				</div>
-=======
-const handleGenerate = async () => {
-  if (!prompt.trim()) {
-    alert("Enter prompt");
-    return;
-  }
-
-  try {
-    const requestPayload = {
-      prompt: prompt.trim(),
-      duration: selectedDuration * 60,
-      frame: "16:9",
-    };
-
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestPayload),
-    });
-
-    const rawBody = await res.text();
-    let data: any = {};
-    if (rawBody) {
-      try {
-        data = JSON.parse(rawBody);
-      } catch {
-        data = { error: rawBody };
-      }
-    }
-
-    console.log("Backend response:", data);
-
-    if (!data.success) {
-      alert(data.error || `Video generation failed (${res.status})`);
-      return;
-    }
-
-    localStorage.setItem("generatedVideo", data.video);
-    navigate("/result");
-  } catch (err) {
-    console.error(err);
-    alert("Error generating video");
-  }
-};
-
-return (
-		<div className="min-h-screen relative overflow-hidden">
-			{/* Gradient Background */}
-			<div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
-			<div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.1),transparent_50%)] -z-10" />
-			<div className="fixed inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.1),transparent_50%)] -z-10" />
->>>>>>> Stashed changes
 
 				{/* Back Button */}
 				<motion.div
@@ -262,7 +234,7 @@ return (
 					className="mb-8"
 				>
 					<button
-						onClick={() => navigate("/tools")}
+						onClick={() => navigate("/features")}
 						className="inline-flex items-center gap-2 text-gray-500 hover:text-cyan-400 transition-colors group"
 					>
 						<ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -312,7 +284,6 @@ return (
 						/>
 					</div>
 
-<<<<<<< Updated upstream
 					{/* Upload Area */}
 					<div className="mb-10">
 						<label className="block text-sm font-semibold mb-4 text-gray-300">
@@ -372,7 +343,7 @@ return (
 												<span className="text-sm font-medium truncate max-w-[150px]">{file.name}</span>
 											</div>
 											<button
-												onClick={() => removeFile(index)}
+												onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== index))}
 												className="p-1 hover:bg-red-500/20 rounded-md text-gray-500 hover:text-red-400 transition-all"
 											>
 												<X className="w-4 h-4" />
@@ -383,9 +354,6 @@ return (
 							)}
 						</AnimatePresence>
 					</div>
-=======
-
->>>>>>> Stashed changes
 
 					{/* Duration Selection */}
 					<div className="mb-10">
@@ -432,18 +400,15 @@ return (
 
 
 			</div>
-<<<<<<< Updated upstream
 		</motion.div>
-=======
-
-			{/* Success Toast */}
+		<AnimatePresence>
 			{showLoginSuccess && (
 				<SuccessToast
 					message="✅ Login successful! Welcome back!"
 					onDismiss={() => setShowLoginSuccess(false)}
 				/>
 			)}
-		</div>
->>>>>>> Stashed changes
+		</AnimatePresence>
+		</>
 	);
 }

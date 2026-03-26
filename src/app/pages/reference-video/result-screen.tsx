@@ -7,7 +7,7 @@ export function ReferenceVideoResultScreen() {
   const navigate = useNavigate();
 
   return (
-    <div 
+    <div
       className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
       style={{
         background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
@@ -15,7 +15,7 @@ export function ReferenceVideoResultScreen() {
       }}
     >
       {/* Corner Vignettes */}
-      <div 
+      <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
       />
@@ -24,11 +24,7 @@ export function ReferenceVideoResultScreen() {
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-<<<<<<< Updated upstream
-          onClick={() => navigate("/tools")}
-=======
           onClick={() => navigate("/features")}
->>>>>>> Stashed changes
           className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -36,9 +32,9 @@ export function ReferenceVideoResultScreen() {
         </motion.button>
 
         <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-6 md:p-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-6 md:p-8"
         >
           <h1 className="text-3xl md:text-4xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             Reference Video Generated
@@ -59,7 +55,7 @@ export function ReferenceVideoResultScreen() {
             <Button
               variant="outline"
               onClick={() => navigate("/reference-video/setup")}
-               className="h-14 px-8 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#0b0d1f]/40"
+              className="h-14 px-8 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#0b0d1f]/40"
             >
               <RefreshCcw className="w-5 h-5 mr-2" />
               Generate Again

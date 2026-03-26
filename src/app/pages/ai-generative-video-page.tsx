@@ -42,14 +42,10 @@ export function AIGenerativeVideoPage() {
     console.log("✅ AI Page Loaded. isLoggedIn:", isLoggedIn);
   }, []);
 
-<<<<<<< Updated upstream
   const handleSurpriseMe = () => {
     const randomPrompt = premiumPrompts[Math.floor(Math.random() * premiumPrompts.length)];
     setPrompt(randomPrompt);
   };
-=======
-
->>>>>>> Stashed changes
 
   const handleGenerateVideo = async () => {
     // Check if user is logged in
@@ -82,9 +78,6 @@ export function AIGenerativeVideoPage() {
         frame: selectedRatio,
       });
 
-<<<<<<< Updated upstream
-      // No reference image in this strict 3-column layout
-=======
       const requestPayload = {
         prompt: prompt.trim(),
         duration: durationMinutes * 60 + durationSeconds,
@@ -92,7 +85,6 @@ export function AIGenerativeVideoPage() {
       };
 
       console.log("📤 Sending POST /api/generate with:", JSON.stringify(requestPayload));
->>>>>>> Stashed changes
 
       const response = await fetch(`/api/generate`, {
         method: "POST",
@@ -297,11 +289,7 @@ export function AIGenerativeVideoPage() {
           className="mb-8"
         >
           <button
-<<<<<<< Updated upstream
-            onClick={() => navigate("/tools")}
-=======
             onClick={() => navigate("/features")}
->>>>>>> Stashed changes
             className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-300 transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -397,8 +385,6 @@ export function AIGenerativeVideoPage() {
               ))}
             </div>
           </motion.div>
-
-<<<<<<< Updated upstream
           {/* RIGHT: Duration & Generate Element */}
           <motion.div
             variants={{
@@ -420,15 +406,6 @@ export function AIGenerativeVideoPage() {
             <div className="grid grid-cols-2 gap-4 mb-6 mt-2">
               <div className="group/input">
                 <label className="block text-[10px] uppercase tracking-[0.2em] text-[#94a3b8] mb-3 font-bold group-focus-within/input:text-cyan-400 transition-colors">Minutes (Max 3)</label>
-=======
-
-
-          <div className="mb-10">
-            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Duration selection (manual, max 3 min)</label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-wider text-slate-500 mb-2 font-semibold">Minutes</label>
->>>>>>> Stashed changes
                 <Input
                   type="number"
                   min={0}

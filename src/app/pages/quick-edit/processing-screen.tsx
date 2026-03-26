@@ -20,7 +20,7 @@ export function QuickEditProcessingScreen() {
     "Detecting silences & jump-cuts",
     "Synthesizing smart captions",
     "Applying chosen style profile",
-    "Final neural encoding"
+    "Final AI encoding"
   ];
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export function QuickEditProcessingScreen() {
 
                 <div className="w-full max-w-md space-y-2">
                    <div className="flex justify-between text-[10px] font-black uppercase text-slate-500">
-                      <span>Neural Progress</span>
+                      <span>AI Progress</span>
                       <span className="text-cyan-400">{progress}%</span>
                    </div>
                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
@@ -162,7 +162,7 @@ export function QuickEditProcessingScreen() {
                       {[
                         { label: 'Compute Speed', val: '0.4s / frame', p: 92 },
                         { label: 'Analysis Depth', val: 'Advanced', p: 100 },
-                        { label: 'Neural Buffer', val: 'Optimized', p: 88 },
+                        { label: 'AI Buffer', val: 'Optimized', p: 88 },
                       ].map((t) => (
                         <div key={t.label} className="space-y-1.5">
                            <div className="flex items-center justify-between text-[8px] font-black uppercase">

@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router";
-<<<<<<< Updated upstream
 import { motion, useScroll, useTransform } from "framer-motion";
 import { 
   Sparkles, 
@@ -9,24 +8,19 @@ import {
   FileVideo, 
   Gauge,
   Play,
-  ArrowRight
+  ArrowRight,
+  LogOut
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "../components/ui/button";
-=======
-import { motion } from "framer-motion";
-import { Sparkles, Rocket, LogOut } from "lucide-react";
-import { useEffect, useState } from "react";
 import { LoginModal } from "./login-modal";
 import { useAuth } from "../context/auth-context";
 import { SuccessToast } from "../components/success-toast";
->>>>>>> Stashed changes
 
 const particles = Array.from({ length: 60 }); 
 
 export function VideoTypePage() {
   const navigate = useNavigate();
-<<<<<<< Updated upstream
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -36,10 +30,7 @@ export function VideoTypePage() {
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 200]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
-  const [prompt, setPrompt] = useState("");
-=======
   const { isLoggedIn, logout } = useAuth();
->>>>>>> Stashed changes
   const [mounted, setMounted] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
@@ -149,18 +140,13 @@ export function VideoTypePage() {
         </div>
       )}
 
-<<<<<<< Updated upstream
       {/* Header */}
       <div className="pt-8 px-6 lg:px-12 flex justify-between items-center max-w-7xl mx-auto relative z-20 w-full mb-16">
-=======
-      {/* Header - Fixed Position */}
-      <div className="fixed top-0 left-0 right-0 px-6 lg:px-12 flex justify-between items-center max-w-full relative z-20 pt-8 pb-8">
->>>>>>> Stashed changes
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-3 group cursor-pointer"
-          onClick={() => navigate("/tools")}
+          onClick={() => navigate("/features")}
         >
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] group-hover:scale-105 transition-all duration-300 border border-white/20 backdrop-blur-md">
             <Sparkles className="w-6 h-6 text-[#0b0d1f]" />
@@ -194,23 +180,12 @@ export function VideoTypePage() {
         </motion.div>
       </div>
 
-<<<<<<< Updated upstream
       <div className="container mx-auto px-6 max-w-7xl relative z-10">
         
         {/* HERO SECTION */}
         <motion.div 
           style={{ y: heroY, opacity: heroOpacity }}
           className="text-center max-w-5xl mx-auto pt-12 pb-24"
-=======
-      <div className="w-full relative z-10 px-6 pt-32">
-        
-        {/* HERO SECTION */}
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="text-center max-w-5xl mx-auto"
->>>>>>> Stashed changes
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -231,17 +206,10 @@ export function VideoTypePage() {
           </p>
 
           <motion.button
-<<<<<<< Updated upstream
             whileHover={{ scale: 1.05, boxShadow: "0 0 80px rgba(34, 211, 238, 0.4)" }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => navigate("/tools")}
-            className="relative px-14 py-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 text-[#0b0d1f] text-xl font-black shadow-2xl shadow-cyan-500/30 transition-all overflow-hidden group border border-cyan-300/40"
-=======
-            whileHover={{ scale: 1.03, boxShadow: "0 0 80px rgba(34, 211, 238, 0.4)" }}
-            whileTap={{ scale: 0.97 }}
             onClick={() => navigate("/features")}
-            className="relative px-12 md:px-14 py-4 md:py-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 text-[#0b0d1f] text-lg md:text-xl font-bold shadow-2xl shadow-cyan-500/30 transition-all overflow-hidden group border border-cyan-300/40"
->>>>>>> Stashed changes
+            className="relative px-14 py-5 rounded-full bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 text-[#0b0d1f] text-xl font-black shadow-2xl shadow-cyan-500/30 transition-all overflow-hidden group border border-cyan-300/40"
           >
             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-full" />
             <span className="relative z-10 flex items-center gap-3 drop-shadow-sm uppercase">
@@ -249,9 +217,6 @@ export function VideoTypePage() {
             </span>
           </motion.button>
         </motion.div>
-<<<<<<< Updated upstream
-
-
 
         {/* VIDEO PREVIEW TEXT ONLY */}
         <motion.div
@@ -286,11 +251,6 @@ export function VideoTypePage() {
             </div>
           ))}
         </motion.div>
-
-
-
-=======
->>>>>>> Stashed changes
       </div>
 
       <style>{`
