@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router";
 import { VideoTypePage } from "./pages/video-type-page";
+import { ToolsSelectionPage } from "./pages/tools-selection-page";
 import { HomePage } from "./pages/home-page";
 import { AIGenerativeVideoPage } from "./pages/ai-generative-video-page";
 import { ProcessingPage } from "./pages/processing-page";
@@ -26,6 +27,10 @@ export const router = createBrowserRouter([
   {
     path: "/",
     Component: VideoTypePage,
+  },
+  {
+    path: "/tools",
+    Component: ToolsSelectionPage,
   },
   // AI Generated Video (original flow)
   {

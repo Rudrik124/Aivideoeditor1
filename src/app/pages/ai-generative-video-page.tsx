@@ -7,7 +7,15 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 
 const ratioOptions = ["16:9", "9:16", "4:3", "3:4", "1:1", "4:5", "2.35:1"];
-const particles = Array.from({ length: 40 }); 
+const particles = Array.from({ length: 40 });
+
+const premiumPrompts = [
+  "A cinematic drone fly-through of a neon cyberpunk city at midnight, highly detailed, Unreal Engine 5 render, volumetric lighting",
+  "A macro shot of a bioluminescent glowing jellyfish in a dark underwater cave, photorealistic, 8k resolution, ray tracing",
+  "A sprawling alien landscape with two massive moons in a twilight sky, ethereal synthwave color palette, smooth camera pan",
+  "A mysterious hooded figure walking through a hyper-realistic futuristic train station in heavy rain, cinematic lighting, 35mm lens",
+  "A time-lapse of a glowing crystal flower blooming in a futuristic greenhouse, soft glowing particles, high contrast"
+];
 
 export function AIGenerativeVideoPage() {
   const navigate = useNavigate();
@@ -15,7 +23,6 @@ export function AIGenerativeVideoPage() {
   const [durationMinutes, setDurationMinutes] = useState(1);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [selectedRatio, setSelectedRatio] = useState("16:9");
-  const [referenceImage, setReferenceImage] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -24,17 +31,9 @@ export function AIGenerativeVideoPage() {
     setMounted(true);
   }, []);
 
-  const imagePreviewUrl = useMemo(() => {
-    if (!referenceImage) {
-      return "";
-    }
-    return URL.createObjectURL(referenceImage);
-  }, [referenceImage]);
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setReferenceImage(event.target.files[0]);
-    }
+  const handleSurpriseMe = () => {
+    const randomPrompt = premiumPrompts[Math.floor(Math.random() * premiumPrompts.length)];
+    setPrompt(randomPrompt);
   };
 
   const handleGenerateVideo = async () => {
@@ -52,9 +51,7 @@ export function AIGenerativeVideoPage() {
       formData.append("duration", String(durationMinutes * 60 + durationSeconds));
       formData.append("frame", selectedRatio);
 
-      if (referenceImage) {
-        formData.append("image", referenceImage);
-      }
+      // No reference image in this strict 3-column layout
 
       const response = await fetch(`/api/generate`, {
         method: "POST",
@@ -125,15 +122,15 @@ export function AIGenerativeVideoPage() {
   };
 
   return (
-    <div 
-      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
+    <div
+      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20 flex flex-col"
       style={{
         background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
         backgroundAttachment: 'fixed'
       }}
     >
       {/* Corner Vignettes */}
-      <div 
+      <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
       />
@@ -141,27 +138,32 @@ export function AIGenerativeVideoPage() {
       {/* Subtle Animated Light Rays */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden mix-blend-screen opacity-20">
         <motion.div
-           animate={{ opacity: [0.1, 0.25, 0.1], scale: [1, 1.1, 1] }}
-           transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-           className="absolute top-[-20%] left-[-10%] w-[80vw] h-[30vh] bg-gradient-to-r from-transparent via-cyan-500 to-transparent blur-[90px] rotate-[35deg] transform origin-top-left"
+          animate={{ opacity: [0.1, 0.25, 0.1], scale: [1, 1.1, 1] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-20%] left-[-10%] w-[80vw] h-[30vh] bg-gradient-to-r from-transparent via-cyan-500 to-transparent blur-[90px] rotate-[35deg] transform origin-top-left"
         />
         <motion.div
-           animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.15, 1] }}
-           transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-           className="absolute bottom-[-20%] right-[-10%] w-[100vw] h-[25vh] bg-gradient-to-r from-transparent via-teal-500 to-transparent blur-[100px] rotate-[-25deg] transform origin-bottom-right"
+          animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.15, 1] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute bottom-[-20%] right-[-10%] w-[100vw] h-[25vh] bg-gradient-to-r from-transparent via-teal-500 to-transparent blur-[100px] rotate-[-25deg] transform origin-bottom-right"
         />
       </div>
 
-      {/* Organic Breathing Glow Pulses */}
-      <motion.div 
-        animate={{ opacity: [0.03, 0.08, 0.03], scale: [1, 1.05, 1] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        className="fixed top-[15%] left-[20%] w-[50%] h-[50%] bg-cyan-600/20 rounded-full blur-[250px] pointer-events-none z-0 mix-blend-screen" 
+      {/* Organic Breathing Glow Pulses (Enhanced Orbs) */}
+      <motion.div
+        animate={{ opacity: [0.03, 0.1, 0.03], scale: [1, 1.2, 1], x: [0, 50, 0], y: [0, -30, 0] }}
+        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        className="fixed top-[5%] left-[5%] w-[60%] h-[60%] bg-cyan-500/30 rounded-full blur-[300px] pointer-events-none z-0 mix-blend-screen"
       />
-      <motion.div 
-        animate={{ opacity: [0.03, 0.06, 0.03], scale: [1, 1.08, 1] }}
-        transition={{ duration: 16, repeat: Infinity, ease: "easeInOut", delay: 3 }}
-        className="fixed bottom-[10%] right-[15%] w-[60%] h-[60%] bg-teal-600/20 rounded-full blur-[250px] pointer-events-none z-0 mix-blend-screen" 
+      <motion.div
+        animate={{ opacity: [0.02, 0.08, 0.02], scale: [1, 1.3, 1], x: [0, -40, 0], y: [0, 50, 0] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="fixed bottom-[0%] right-[5%] w-[70%] h-[70%] bg-teal-500/30 rounded-full blur-[350px] pointer-events-none z-0 mix-blend-screen"
+      />
+      <motion.div
+        animate={{ opacity: [0.01, 0.05, 0.01], scale: [1, 1.5, 1], x: [0, 100, 0] }}
+        transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 5 }}
+        className="fixed top-[40%] left-[30%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[250px] pointer-events-none z-0 mix-blend-screen"
       />
 
       {/* Floating Cyan Particles - Parallax Effect */}
@@ -169,16 +171,16 @@ export function AIGenerativeVideoPage() {
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 perspective-[1000px]">
           {particles.map((_, i) => {
             const isFlare = i % 8 === 0;
-            const size = isFlare ? Math.random() * 40 + 20 : Math.random() * 2 + 1; 
-            const depth = Math.random() * 100 + 50; 
-            
+            const size = isFlare ? Math.random() * 40 + 20 : Math.random() * 2 + 1;
+            const depth = Math.random() * 100 + 50;
+
             return (
               <motion.div
                 key={i}
                 className="absolute"
                 style={{
                   width: isFlare ? size : size,
-                  height: isFlare ? 2 : size, 
+                  height: isFlare ? 2 : size,
                   borderRadius: isFlare ? '100%' : '50%',
                   backgroundColor: isFlare ? 'rgba(34, 211, 238, 0.15)' : `rgba(165, 243, 252, ${Math.random() * 0.4 + 0.1})`,
                   filter: isFlare ? 'blur(3px)' : 'blur(0.5px)',
@@ -197,7 +199,7 @@ export function AIGenerativeVideoPage() {
                   opacity: isFlare ? [0, 0.4, 0] : [0, 0.6, 0],
                 }}
                 transition={{
-                  duration: Math.random() * 35 + 20, 
+                  duration: Math.random() * 35 + 20,
                   repeat: Infinity,
                   ease: "linear",
                 }}
@@ -208,7 +210,24 @@ export function AIGenerativeVideoPage() {
       )}
 
 
-      <div className="container mx-auto px-4 py-12 md:py-20 max-w-4xl relative z-10">
+      {/* Header with Logo */}
+      <div className="pt-8 px-6 lg:px-12 flex justify-between items-center max-w-7xl mx-auto relative z-10 w-full mb-8">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex items-center gap-3 group cursor-pointer"
+          onClick={() => navigate("/tools")}
+        >
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] group-hover:scale-105 transition-all duration-300 border border-white/20 backdrop-blur-md">
+            <Sparkles className="w-6 h-6 text-[#0b0d1f]" />
+          </div>
+          <span className="text-2xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] group-hover:text-cyan-400/80 transition-colors">
+            AIVideo
+          </span>
+        </motion.div>
+      </div>
+
+      <div className="container mx-auto px-4 py-4 md:py-8 max-w-7xl relative z-10 flex flex-col flex-1">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -216,7 +235,7 @@ export function AIGenerativeVideoPage() {
           className="mb-8"
         >
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/tools")}
             className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-300 transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -235,103 +254,105 @@ export function AIGenerativeVideoPage() {
             <span className="text-sm font-semibold text-cyan-100 tracking-wide uppercase font-sans tracking-[0.2em]">AI Generative Video</span>
           </div>
 
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter mb-4 selection:bg-cyan-500/30">
+          <h1 className="text-4xl md:text-5xl lg:text-5xl font-black tracking-tighter mb-4 selection:bg-cyan-500/30">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
               Generate Video with AI
             </span>
           </h1>
           <p className="text-base md:text-lg text-[#94a3b8] max-w-2xl mx-auto leading-relaxed">
-            Add a prompt, optionally upload an image, choose frame settings and duration, then generate.
+            Create stunning videos using AI in seconds
           </p>
         </motion.div>
 
+        {/* 3-COLUMN LAYOUT (Staggered Animation Wrapper) */}
         <motion.div
-          initial={{ opacity: 0, y: 25 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="bg-[#1a1b2e]/40 backdrop-blur-3xl border border-[#3f4a67]/50 rounded-3xl p-6 md:p-10 shadow-[0_8px_30px_rgba(11,13,31,0.5)]"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: {
+              transition: { staggerChildren: 0.15 }
+            }
+          }}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 lg:flex-1"
         >
-          <div className="mb-8">
-            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Enter prompt manually</label>
+          {/* LEFT: Prompt */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 30 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+            }}
+            className="bg-[#1a1b2e]/50 backdrop-blur-3xl border border-[#3f4a67]/50 rounded-[2rem] p-6 lg:p-8 shadow-[0_8px_30px_rgba(11,13,31,0.5)] flex flex-col group hover:shadow-[0_8px_30px_rgba(34,211,238,0.15)] transition-all h-full min-h-[300px]"
+          >
+            <div className="flex items-center justify-between mb-4 border-b border-[#3f4a67]/50 pb-4">
+              <label className="text-xs md:text-sm font-bold text-cyan-50/90 uppercase tracking-[0.15em] flex items-center gap-3">
+                <Sparkles className="w-4 h-4 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                Enter prompt manually
+              </label>
+              <button
+                onClick={handleSurpriseMe}
+                className="text-[10px] uppercase tracking-widest font-bold text-cyan-400 bg-cyan-900/30 hover:bg-cyan-800/50 px-3 py-1.5 rounded-full border border-cyan-500/30 hover:border-cyan-400 transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(34,211,238,0.1)] hover:shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:scale-105 active:scale-95"
+              >
+                Surprise me 🎲
+              </button>
+            </div>
             <Textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               placeholder="Example: A cinematic fly-through of a futuristic city at sunrise with smooth camera motion and volumetric light."
-              className="min-h-[140px] text-base resize-none rounded-2xl border border-[#3f4a67] focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 bg-[#0b0d1f]/50 text-white placeholder:text-slate-500 transition-all shadow-inner"
+              className="flex-1 w-full text-base resize-none rounded-2xl border border-[#3f4a67]/60 group-focus-within:border-cyan-400 hover:border-cyan-500/50 group-focus-within:ring-1 group-focus-within:ring-cyan-500/50 group-focus-within:shadow-[0_0_40px_rgba(34,211,238,0.15)] bg-[#0b0d1f]/60 text-white placeholder:text-slate-500 transition-all duration-300 p-5 shadow-inner"
             />
-          </div>
+          </motion.div>
 
-          <div className="mb-8">
-            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Frame selection</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* CENTER: Frame Selection */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 30 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+            }}
+            className="bg-[#1a1b2e]/50 backdrop-blur-3xl border border-[#3f4a67]/50 rounded-[2rem] p-6 lg:p-8 shadow-[0_8px_30px_rgba(11,13,31,0.5)] flex flex-col h-full hover:shadow-[0_8px_30px_rgba(34,211,238,0.15)] transition-all min-h-[300px]"
+          >
+            <label className="text-xs md:text-sm font-bold mb-4 text-cyan-50/90 uppercase tracking-[0.15em] flex items-center gap-3 border-b border-[#3f4a67]/50 pb-4">
+              <Video className="w-4 h-4 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+              Frame selection
+            </label>
+            <div className="grid grid-cols-2 gap-3 flex-1 content-start mt-2 relative">
               {ratioOptions.map((ratio) => (
                 <button
                   key={ratio}
                   onClick={() => setSelectedRatio(ratio)}
-                  className={`rounded-2xl border-2 p-5 min-h-[92px] transition-all flex flex-col items-center justify-center gap-2 ${
-                    selectedRatio === ratio
-                      ? "border-cyan-400 bg-cyan-900/20 shadow-[0_0_15px_rgba(34,211,238,0.15)]"
-                      : "border-[#3f4a67] bg-[#0b0d1f]/40 hover:border-cyan-500/50 hover:bg-[#1a1b2e]/60"
-                  }`}
+                  className={`relative rounded-2xl border p-5 transition-all duration-300 flex flex-col items-center justify-center ${selectedRatio === ratio
+                      ? "border-cyan-400 bg-cyan-500/10 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                      : "border-[#3f4a67]/80 bg-[#0b0d1f]/40 hover:border-cyan-500/60 hover:bg-[#1a1b2e]/80 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]"
+                    }`}
                 >
-                  <Video className={`w-5 h-5 transition-colors ${selectedRatio === ratio ? "text-cyan-400" : "text-slate-500"}`} />
-                  <div className={`text-xl font-bold leading-none transition-colors ${selectedRatio === ratio ? "text-white" : "text-slate-400"}`}>{ratio}</div>
+                  <div className={`relative z-10 text-xl font-black tracking-wider transition-all duration-300 ${selectedRatio === ratio ? "text-cyan-100 drop-shadow-[0_0_5px_rgba(255,255,255,0.4)]" : "text-slate-400"}`}>{ratio}</div>
                 </button>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          <div className="mb-8">
-            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Add picture (optional)</label>
-            <div className="relative border-2 border-dashed border-[#3f4a67] hover:border-cyan-400/80 rounded-2xl p-6 bg-[#0b0d1f]/40 transition-all group">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              />
-
-              {referenceImage ? (
-                <div className="flex items-center justify-between gap-4 relative z-20">
-                  <div className="flex items-center gap-4 min-w-0">
-                    {imagePreviewUrl ? (
-                      <img
-                        src={imagePreviewUrl}
-                        alt="Reference"
-                        className="w-14 h-14 rounded-xl object-cover border border-[#3f4a67]"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl bg-[#1a1b2e] border border-[#3f4a67]" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{referenceImage.name}</p>
-                      <p className="text-xs text-cyan-400">Optional image ready</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setReferenceImage(null);
-                    }}
-                    className="text-slate-400 hover:text-red-400 transition-colors px-3 py-1 rounded-lg hover:bg-red-500/10 z-20"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-3 text-slate-500 group-hover:text-cyan-400 transition-colors">
-                  <ImageIcon className="w-6 h-6" />
-                  <p className="text-sm font-medium">Click to upload an optional image reference</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="mb-10">
-            <label className="block text-sm font-semibold mb-3 text-cyan-50/80 uppercase tracking-wider">Duration selection (manual, max 3 min)</label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-wider text-slate-500 mb-2 font-semibold">Minutes</label>
+          {/* RIGHT: Duration & Generate Element */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 30 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+            }}
+            className="bg-[#1a1b2e]/50 backdrop-blur-3xl border border-[#3f4a67]/50 rounded-[2rem] p-6 lg:p-8 shadow-[0_8px_30px_rgba(11,13,31,0.5)] flex flex-col h-full hover:shadow-[0_8px_30px_rgba(34,211,238,0.15)] transition-all min-h-[300px]"
+          >
+            <label className="text-xs md:text-sm font-bold mb-4 text-cyan-50/90 uppercase tracking-[0.15em] flex items-center gap-3 border-b border-[#3f4a67]/50 pb-4">
+              <div className="w-4 h-4 rounded-full border-2 border-cyan-400 flex items-center justify-center drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">
+                <motion.div
+                  animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="w-1.5 h-1.5 bg-cyan-400 rounded-full"
+                />
+              </div>
+              Duration selection
+            </label>
+            <div className="grid grid-cols-2 gap-4 mb-6 mt-2">
+              <div className="group/input">
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-[#94a3b8] mb-3 font-bold group-focus-within/input:text-cyan-400 transition-colors">Minutes (Max 3)</label>
                 <Input
                   type="number"
                   min={0}
@@ -339,11 +360,11 @@ export function AIGenerativeVideoPage() {
                   step={1}
                   value={durationMinutes}
                   onChange={(event) => handleMinutesInput(event.target.value)}
-                  className="h-12 rounded-xl border border-[#3f4a67] bg-[#0b0d1f]/50 text-white font-semibold text-lg focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all text-center"
+                  className="h-16 rounded-2xl border border-[#3f4a67]/80 bg-[#0b0d1f]/60 text-white font-black text-2xl focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 focus:shadow-[0_0_30px_rgba(34,211,238,0.2)] transition-all text-center shadow-inner"
                 />
               </div>
-              <div>
-                <label className="block text-xs uppercase tracking-wider text-slate-500 mb-2 font-semibold">Seconds</label>
+              <div className="group/input">
+                <label className="block text-[10px] uppercase tracking-[0.2em] text-[#94a3b8] mb-3 font-bold group-focus-within/input:text-cyan-400 transition-colors">Seconds</label>
                 <Input
                   type="number"
                   min={0}
@@ -351,24 +372,41 @@ export function AIGenerativeVideoPage() {
                   step={1}
                   value={durationSeconds}
                   onChange={(event) => handleSecondsInput(event.target.value)}
-                  className="h-12 rounded-xl border border-[#3f4a67] bg-[#0b0d1f]/50 text-white font-semibold text-lg focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all text-center"
+                  className="h-16 rounded-2xl border border-[#3f4a67]/80 bg-[#0b0d1f]/60 text-white font-black text-2xl focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 focus:shadow-[0_0_30px_rgba(34,211,238,0.2)] transition-all text-center shadow-inner"
                 />
               </div>
             </div>
-          </div>
 
-          <Button
-            onClick={handleGenerateVideo}
-            disabled={!prompt.trim() || isGenerating}
-            className="w-full h-16 text-lg rounded-2xl bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 transition-all shadow-[0_4px_20px_rgba(34,211,238,0.3)] hover:shadow-[0_8px_30px_rgba(34,211,238,0.4)] disabled:opacity-50 disabled:cursor-not-allowed text-[#0b0d1f] font-bold"
-          >
-            <Video className="w-5 h-5 mr-3" />
-            {isGenerating ? "Generating..." : "Generate Video"}
-          </Button>
+            {errorMessage && (
+              <p className="mt-2 mb-4 text-sm text-red-400 text-center font-bold bg-red-500/10 border border-red-500/30 py-3 px-4 rounded-xl backdrop-blur-sm">{errorMessage}</p>
+            )}
 
-          {errorMessage && (
-            <p className="mt-6 text-sm text-red-400 text-center font-medium bg-red-500/10 border border-red-500/20 py-2 rounded-lg">{errorMessage}</p>
-          )}
+            <div className="mt-auto relative group/btn w-full">
+              {/* Animated Button Sheen/Glow Background */}
+              <motion.div
+                className="absolute -inset-1 rounded-[1.25rem] bg-gradient-to-r from-cyan-600 via-teal-400 to-blue-600 opacity-40 blur-xl group-hover/btn:opacity-70 transition-opacity duration-500"
+                animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+                style={{ backgroundSize: '200% 200%' }}
+              />
+              <Button
+                onClick={handleGenerateVideo}
+                disabled={!prompt.trim() || isGenerating}
+                className="relative w-full h-16 text-lg rounded-2xl bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-100 hover:scale-[1.03] transition-all duration-300 shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.6)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-[#0b0d1f] font-black tracking-widest border border-cyan-300/50 overflow-hidden z-10"
+              >
+                {/* Internal animated gloss */}
+                <motion.div
+                  className="absolute inset-0 w-[50%] h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12"
+                  animate={{ left: ['-100%', '200%'] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", repeatDelay: 1 }}
+                />
+                <span className="relative z-10 flex items-center justify-center gap-3">
+                  <Video className="w-5 h-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] group-hover/btn:rotate-12 transition-transform duration-300" />
+                  {isGenerating ? "GENERATING..." : "GENERATE VIDEO"}
+                </span>
+              </Button>
+            </div>
+          </motion.div>
         </motion.div>
       </div>
     </div>

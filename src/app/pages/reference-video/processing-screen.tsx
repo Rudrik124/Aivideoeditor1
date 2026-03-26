@@ -14,7 +14,7 @@ export function ReferenceVideoProcessingScreen() {
   }, [navigate]);
 
   return (
-    <div 
+    <div
       className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white flex items-center justify-center"
       style={{
         background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
@@ -22,7 +22,7 @@ export function ReferenceVideoProcessingScreen() {
       }}
     >
       {/* Corner Vignettes */}
-      <div 
+      <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
       />

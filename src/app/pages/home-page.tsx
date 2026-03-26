@@ -1,8 +1,22 @@
-import * as React from "react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Upload, Sparkles, Video, Image as ImageIcon, Clock, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+	Upload,
+	X,
+	FileVideo,
+	Video,
+	Sparkles,
+	ArrowLeft,
+	Play,
+	Zap,
+	Clock,
+	Gauge,
+	MonitorPlay,
+	CheckCircle2,
+	ChevronRight,
+	Image as ImageIcon
+} from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 
@@ -12,6 +26,9 @@ const durations = [
 	{ value: 5, label: "5 min" },
 ];
 
+const particles = Array.from({ length: 40 });
+
+
 export function HomePage() {
 	const navigate = useNavigate();
 	const [prompt, setPrompt] = useState("");
@@ -20,6 +37,7 @@ export function HomePage() {
 	const [isDragging, setIsDragging] = useState(false);
 	const [isRefDragging, setIsRefDragging] = useState(false);
 	const [selectedDuration, setSelectedDuration] = useState(2);
+	const [uploading, setUploading] = useState(false);
 
 	const handleDragOver = (e: React.DragEvent<HTMLDivElement>, isReference = false) => {
 		e.preventDefault();
@@ -44,7 +62,7 @@ export function HomePage() {
 			setIsRefDragging(false);
 			const files = Array.from(e.dataTransfer.files);
 			if (files.length > 0) {
-				setReferenceVideo(files[0]);
+				setReferenceVideo(files[0] as File);
 			}
 		} else {
 			setIsDragging(false);
@@ -66,80 +84,99 @@ export function HomePage() {
 		}
 	};
 
-const handleGenerate = async () => {
-  if (!prompt.trim()) {
-    alert("Enter prompt");
-    return;
-  }
-
-  if (uploadedFiles.length === 0) {
-    alert("Upload at least one video");
-    return;
-  }
-
-  try {
-    const formData = new FormData();
-
-    // ✅ send main video file
-    formData.append("file", uploadedFiles[0]);
-
-    // ✅ send prompt
-    formData.append("prompt", prompt);
-
-    // ✅ send selected duration
-    formData.append("duration", String(selectedDuration * 60)); // convert min → seconds
-
-    // ✅ optional reference video
-    if (referenceVideo) {
-      formData.append("reference", referenceVideo);
-    }
-
-		const res = await fetch("/api/generate", {
-      method: "POST",
-      body: formData,
-    });
-
-		const rawBody = await res.text();
-		let data: any = {};
-		if (rawBody) {
-			try {
-				data = JSON.parse(rawBody);
-			} catch {
-				data = { error: rawBody };
-			}
-		}
-
-    console.log("Backend response:", data);
-
-    if (!data.success) {
-			alert(data.error || `Video generation failed (${res.status})`);
-      return;
-    }
-
-    // ✅ store video path
-    localStorage.setItem("generatedVideo", data.video);
-
-    // ✅ go to result page
-    navigate("/result");
-
-  } catch (err) {
-    console.error(err);
-    alert("Error generating video");
-  }
-};
-
 	const removeFile = (index: number) => {
 		setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
 	};
 
-	return (
-		<div className="min-h-screen relative overflow-hidden">
-			{/* Gradient Background */}
-			<div className="fixed inset-0 bg-gradient-to-br from-[#6366f1]/5 via-[#8b5cf6]/5 to-[#d946ef]/5 -z-10" />
-			<div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.1),transparent_50%)] -z-10" />
-			<div className="fixed inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.1),transparent_50%)] -z-10" />
+	const handleGenerate = async () => {
+		if (!prompt.trim() || uploadedFiles.length === 0) {
+			alert("Please provide a prompt and at least one media file.");
+			return;
+		}
 
-			<div className="container mx-auto px-4 py-12 md:py-20 max-w-5xl">
+		setUploading(true);
+
+		try {
+			// Simulate API call
+			await new Promise(resolve => setTimeout(resolve, 2000));
+			localStorage.setItem("generatedVideo", "/sample-video.mp4"); // Placeholder
+			navigate("/result");
+		} catch (err) {
+			console.error(err);
+			alert("Failed to generate video");
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	return (
+		<motion.div
+			className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20 flex flex-col"
+			animate={{
+				background: [
+					'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+					'linear-gradient(135deg, #1a1b2e 0%, #2d3142 30%, #3f4a67 60%, #0b0d1f 85%, #2d3142 100%)',
+					'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+				]
+			}}
+			transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+			style={{ backgroundAttachment: 'fixed' }}
+		>
+			{/* Focal Radial Glow (Behind Title) */}
+			<div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-[60%] h-[40%] bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none z-0" />
+
+			{/* Floating Particles */}
+			<div className="fixed inset-0 pointer-events-none z-0">
+				{particles.map((_, i) => (
+					<motion.div
+						key={i}
+						initial={{
+							opacity: Math.random() * 0.4,
+							x: Math.random() * 100 + "%",
+							y: Math.random() * 100 + "%",
+							scale: Math.random() * 0.5 + 0.5
+						}}
+						animate={{
+							y: [null, (Math.random() * -100 - 50) + "px"],
+							opacity: [null, Math.random() * 0.3, 0]
+						}}
+						transition={{
+							duration: Math.random() * 10 + 10,
+							repeat: Infinity,
+							ease: "linear",
+							delay: Math.random() * 20
+						}}
+						className="absolute w-1 h-1 bg-cyan-400/40 rounded-full blur-[1px]"
+					/>
+				))}
+			</div>
+
+			{/* Corner Vignettes */}
+			<div
+				className="fixed inset-0 pointer-events-none z-10"
+				style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
+			/>
+
+			<div className="relative z-10 container mx-auto px-4 py-12 lg:py-20 max-w-6xl">
+				{/* Top Header with Logo */}
+				<div className="flex justify-between items-center mb-12">
+					<motion.div
+						initial={{ opacity: 0, x: -20 }}
+						animate={{ opacity: 1, x: 0 }}
+						className="flex items-center gap-2 group cursor-pointer"
+						onClick={() => navigate("/tools")}
+					>
+						<div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] group-hover:scale-105 transition-all duration-300 border border-white/20 backdrop-blur-md">
+							<Sparkles className="w-6 h-6 text-[#0b0d1f]" />
+						</div>
+						<span className="text-2xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] group-hover:text-cyan-400/80 transition-colors">
+							AIVideo
+						</span>
+					</motion.div>
+
+					<button className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">Documentation</button>
+				</div>
+
 				{/* Back Button */}
 				<motion.div
 					initial={{ opacity: 0, x: -20 }}
@@ -148,10 +185,10 @@ const handleGenerate = async () => {
 					className="mb-8"
 				>
 					<button
-						onClick={() => navigate("/")}
-						className="inline-flex items-center gap-2 text-gray-600 hover:text-[#6366f1] transition-colors"
+						onClick={() => navigate("/tools")}
+						className="inline-flex items-center gap-2 text-gray-500 hover:text-cyan-400 transition-colors group"
 					>
-						<ArrowLeft className="w-4 h-4" />
+						<ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
 						<span className="text-sm">Back to selection</span>
 					</button>
 				</motion.div>
@@ -162,22 +199,20 @@ const handleGenerate = async () => {
 					transition={{ duration: 0.6 }}
 					className="text-center mb-12"
 				>
-					{/* Hero Section */}
-					<div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 mb-6">
-						<Sparkles className="w-4 h-4 text-[#6366f1]" />
-						<span className="text-sm text-gray-600">Powered by AI</span>
+					<div className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10 mb-6">
+						<Sparkles className="w-4 h-4 text-cyan-400" />
+						<span className="text-sm text-gray-400">Powered by AI Video Engine v2.0</span>
 					</div>
 
-					<h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 bg-linear-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] bg-clip-text text-transparent">
+					<h1 className="text-5xl md:text-7xl font-black mb-6 bg-gradient-to-r from-white via-cyan-100 to-teal-300 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
 						AI Video Editor
 					</h1>
 
-					<p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-2">
-						Transform your ideas into stunning cinematic videos
+					<p className="text-lg text-gray-400 max-w-2xl mx-auto mb-10">
+						Refine your vision with professional AI-powered editing tools. Upload multiple clips and let our engine handle the magic.
 					</p>
-					<p className="text-base text-gray-500 max-w-xl mx-auto">
-						Simply describe your vision, upload your media, and let AI create professional videos in seconds
-					</p>
+
+
 				</motion.div>
 
 				{/* Main Content Card */}
@@ -185,35 +220,34 @@ const handleGenerate = async () => {
 					initial={{ opacity: 0, y: 30 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.6, delay: 0.2 }}
-					className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200 p-6 md:p-8 lg:p-10"
+					className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 p-6 md:p-10"
 				>
 					{/* Prompt Input */}
-					<div className="mb-8">
-						<label className="block text-sm mb-3 text-gray-700">
-							Describe your video
+					<div className="mb-10">
+						<label className="block text-sm font-semibold mb-4 text-gray-300">
+							Describe your cinematic vision
 						</label>
 						<Textarea
 							value={prompt}
 							onChange={(e) => setPrompt(e.target.value)}
-							placeholder="A cinematic travel video showcasing the beauty of Iceland with aerial drone shots, northern lights, and waterfalls..."
-							className="min-h-[120px] text-base resize-none rounded-xl border-gray-300 focus:border-[#6366f1] focus:ring-[#6366f1] bg-white/50"
+							placeholder="e.g. A fast-paced cinematic trailer with glitch transitions and color grading focused on cold blue tones..."
+							className="min-h-[150px] text-lg resize-none rounded-2xl border-white/10 focus:border-cyan-500/50 focus:ring-cyan-500/30 bg-white/5 text-white placeholder:text-gray-600"
 						/>
 					</div>
 
 					{/* Upload Area */}
-					<div className="mb-8">
-						<label className="block text-sm mb-3 text-gray-700">
-							Upload your media files
+					<div className="mb-10">
+						<label className="block text-sm font-semibold mb-4 text-gray-300">
+							Upload source media
 						</label>
 						<div
 							onDragOver={(e) => handleDragOver(e, false)}
 							onDragLeave={() => handleDragLeave(false)}
 							onDrop={(e) => handleDrop(e, false)}
-							className={`relative border-2 border-dashed rounded-xl p-8 md:p-12 text-center transition-all duration-200 ${
-								isDragging
-									? "border-[#6366f1] bg-[#6366f1]/5"
-									: "border-gray-300 hover:border-gray-400 bg-white/30"
-							}`}
+							className={`relative border-2 border-dashed rounded-2xl p-10 md:p-16 text-center transition-all duration-300 ${isDragging
+								? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_30px_rgba(34,211,238,0.2)]"
+								: "border-white/10 hover:border-white/20 bg-white/5"
+								}`}
 						>
 							<input
 								type="file"
@@ -222,113 +256,73 @@ const handleGenerate = async () => {
 								onChange={handleFileInput}
 								className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
 							/>
-							<div className="flex flex-col items-center gap-4">
-								<div className="w-16 h-16 rounded-full bg-linear-to-br from-[#6366f1] to-[#8b5cf6] flex items-center justify-center">
-									<Upload className="w-8 h-8 text-white" />
+							<div className="flex flex-col items-center gap-6">
+								<div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-cyan-600 to-teal-500 flex items-center justify-center shadow-2xl shadow-cyan-500/20">
+									<Upload className="w-10 h-10 text-[#0b0d1f]" />
 								</div>
 								<div>
-									<p className="text-base mb-1">
-										<span className="font-medium text-[#6366f1]">Click to upload</span> or drag and drop
+									<p className="text-lg mb-1">
+										<span className="font-bold text-cyan-400">Click to upload</span> or drag and drop
 									</p>
-									<p className="text-sm text-gray-500">Videos and images (MP4, MOV, JPG, PNG)</p>
+									<p className="text-sm text-gray-500">Supports MP4, MOV, JPG, PNG (Max 500MB)</p>
 								</div>
 							</div>
 						</div>
 
 						{/* Uploaded Files List */}
-						{uploadedFiles.length > 0 && (
-							<div className="mt-4 space-y-2">
-								{uploadedFiles.map((file, index) => (
-									<motion.div
-										key={index}
-										initial={{ opacity: 0, x: -10 }}
-										animate={{ opacity: 1, x: 0 }}
-										className="flex items-center justify-between bg-white/50 rounded-lg p-3 border border-gray-200"
-									>
-										<div className="flex items-center gap-3">
-											{file.type.startsWith("video") ? (
-												<Video className="w-5 h-5 text-[#6366f1]" />
-											) : (
-												<ImageIcon className="w-5 h-5 text-[#8b5cf6]" />
-											)}
-											<span className="text-sm text-gray-700">{file.name}</span>
-										</div>
-										<button
-											onClick={() => removeFile(index)}
-											className="text-gray-400 hover:text-red-500 transition-colors"
+						<AnimatePresence>
+							{uploadedFiles.length > 0 && (
+								<motion.div
+									initial={{ opacity: 0, height: 0 }}
+									animate={{ opacity: 1, height: "auto" }}
+									exit={{ opacity: 0, height: 0 }}
+									className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3"
+								>
+									{uploadedFiles.map((file, index) => (
+										<motion.div
+											key={`${file.name}-${index}`}
+											initial={{ opacity: 0, x: -10 }}
+											animate={{ opacity: 1, x: 0 }}
+											className="flex items-center justify-between bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors"
 										>
-											×
-										</button>
-									</motion.div>
-								))}
-							</div>
-						)}
-					</div>
-
-					{/* Optional Reference Video */}
-					<div className="mb-8">
-						<label className="block text-sm mb-3 text-gray-700">
-							Reference video (optional)
-						</label>
-						<div
-							onDragOver={(e) => handleDragOver(e, true)}
-							onDragLeave={() => handleDragLeave(true)}
-							onDrop={(e) => handleDrop(e, true)}
-							className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
-								isRefDragging
-									? "border-[#8b5cf6] bg-[#8b5cf6]/5"
-									: "border-gray-300 hover:border-gray-400 bg-white/30"
-							}`}
-						>
-							<input
-								type="file"
-								accept="video/*"
-								onChange={handleReferenceInput}
-								className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-							/>
-							{referenceVideo ? (
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3">
-										<Video className="w-5 h-5 text-[#8b5cf6]" />
-										<span className="text-sm text-gray-700">{referenceVideo.name}</span>
-									</div>
-									<button
-										onClick={(e) => {
-											e.stopPropagation();
-											setReferenceVideo(null);
-										}}
-										className="text-gray-400 hover:text-red-500 transition-colors"
-									>
-										×
-									</button>
-								</div>
-							) : (
-								<div className="flex items-center justify-center gap-3">
-									<Upload className="w-5 h-5 text-gray-400" />
-									<p className="text-sm text-gray-500">Upload a reference video for style matching</p>
-								</div>
+											<div className="flex items-center gap-3">
+												{file.type.startsWith("video") ? (
+													<Video className="w-5 h-5 text-cyan-400" />
+												) : (
+													<ImageIcon className="w-5 h-5 text-teal-400" />
+												)}
+												<span className="text-sm font-medium truncate max-w-[150px]">{file.name}</span>
+											</div>
+											<button
+												onClick={() => removeFile(index)}
+												className="p-1 hover:bg-red-500/20 rounded-md text-gray-500 hover:text-red-400 transition-all"
+											>
+												<X className="w-4 h-4" />
+											</button>
+										</motion.div>
+									))}
+								</motion.div>
 							)}
-						</div>
+						</AnimatePresence>
 					</div>
 
 					{/* Duration Selection */}
-					<div className="mb-8">
-						<label className="block text-sm mb-3 text-gray-700">
-							Select video duration
+					<div className="mb-10">
+						<label className="block text-sm font-semibold mb-4 text-gray-300 text-center">
+							Final output duration
 						</label>
-						<div className="flex items-center justify-center gap-4">
+						<div className="flex flex-wrap items-center justify-center gap-4">
 							{durations.map((duration) => (
 								<button
 									key={duration.value}
 									onClick={() => setSelectedDuration(duration.value)}
-									className={`flex items-center gap-2 px-6 py-3 rounded-xl border-2 transition-all duration-200 ${
-										selectedDuration === duration.value
-											? "border-[#6366f1] bg-[#6366f1]/10 text-[#6366f1]"
-											: "border-gray-300 hover:border-gray-400 bg-white/30 text-gray-700"
-									}`}
+									className={`flex items-center gap-3 px-8 py-4 rounded-2xl border transition-all duration-300 ${selectedDuration === duration.value
+										? "border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+										: "border-white/10 hover:border-white/20 bg-white/5 text-gray-400"
+										}`}
 								>
-									<Clock className="w-4 h-4" />
-									<span>{duration.label}</span>
+									<Clock className={`w-5 h-5 ${selectedDuration === duration.value ? "text-cyan-400" : "text-gray-500"}`} />
+									<span className="font-bold">{duration.label}</span>
 								</button>
 							))}
 						</div>
@@ -337,31 +331,26 @@ const handleGenerate = async () => {
 					{/* Generate Button */}
 					<Button
 						onClick={handleGenerate}
-						disabled={!prompt.trim()}
-						className="w-full h-14 text-lg rounded-xl bg-linear-to-r from-[#6366f1] via-[#8b5cf6] to-[#d946ef] hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+						disabled={!prompt.trim() || uploadedFiles.length === 0 || uploading}
+						className="w-full h-16 text-xl font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 text-[#0b0d1f] hover:opacity-95 transition-all shadow-[0_10px_40px_rgba(34,211,238,0.3)] disabled:opacity-30 rounded-2xl relative overflow-hidden group"
 					>
-						<Sparkles className="w-5 h-5 mr-2" />
-						Generate Video
+						{uploading ? (
+							<div className="flex items-center gap-3">
+								<div className="w-6 h-6 border-4 border-[#0b0d1f] border-t-transparent rounded-full animate-spin" />
+								Processing Media...
+							</div>
+						) : (
+							<div className="flex items-center gap-3">
+								<Sparkles className="w-6 h-6" />
+								Generate AI Video
+							</div>
+						)}
+						<div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
 					</Button>
 				</motion.div>
 
-				{/* Feature Pills */}
-				<motion.div
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					transition={{ duration: 0.6, delay: 0.4 }}
-					className="mt-12 flex flex-wrap justify-center gap-4"
-				>
-					{["AI-Powered Editing", "Instant Results", "4K Export", "No Watermark"].map((feature, index) => (
-						<div
-							key={index}
-							className="px-4 py-2 bg-white/60 backdrop-blur-sm rounded-full border border-gray-200 text-sm text-gray-600"
-						>
-							{feature}
-						</div>
-					))}
-				</motion.div>
+
 			</div>
-		</div>
+		</motion.div>
 	);
 }
