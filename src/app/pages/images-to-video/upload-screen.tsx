@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
+import { LoadingModal, type LoadingState } from "../../components/loading-modal";
 
 export function ImagesToVideoUploadScreen() {
   const navigate = useNavigate();
@@ -14,6 +15,10 @@ export function ImagesToVideoUploadScreen() {
   const [durationMinutes, setDurationMinutes] = useState(1);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [selectedRatio, setSelectedRatio] = useState("16:9");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loadingState, setLoadingState] = useState<LoadingState>(null);
+  const [loadingMessage, setLoadingMessage] = useState("");
 
   const ratioOptions = ["16:9", "9:16", "4:3", "3:4", "1:1", "4:5", "2.35:1"];
   const ratioPreviewClasses: Record<string, string> = {
@@ -83,6 +88,80 @@ export function ImagesToVideoUploadScreen() {
   };
 
   const canGenerate = prompt.trim().length > 0 && mediaFiles.length > 0;
+
+  const handleGenerateVideo = async () => {
+    if (!canGenerate || isGenerating) {
+      return;
+    }
+
+    setIsGenerating(true);
+    setErrorMessage("");
+    setLoadingState("loading");
+    setLoadingMessage("Generating your video...");
+
+    try {
+      const totalSeconds = durationMinutes * 60 + durationSeconds;
+
+      const formData = new FormData();
+      formData.append("prompt", prompt.trim());
+      formData.append("duration", String(totalSeconds));
+      formData.append("frame", selectedRatio);
+
+      mediaFiles.forEach((file) => {
+        formData.append("media", file);
+      });
+
+      if (audioFile) {
+        formData.append("audio", audioFile);
+      }
+
+      const response = await fetch("/api/generate-from-media", {
+        method: "POST",
+        body: formData,
+      });
+
+      const rawBody = await response.text();
+      let data: any = {};
+
+      if (rawBody) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = { error: rawBody };
+        }
+      }
+
+      if (!response.ok || !data.success || !data.video) {
+        const message = data.error || data.detail || `Video generation failed (${response.status}).`;
+        throw new Error(message);
+      }
+
+      setLoadingState("success");
+      setLoadingMessage("Video generated successfully!");
+
+      localStorage.setItem("generatedVideo", data.video);
+      localStorage.removeItem("generatedVideoError");
+      if (data.storage) {
+        localStorage.setItem("generatedVideoStorage", data.storage);
+      } else {
+        localStorage.removeItem("generatedVideoStorage");
+      }
+
+      setTimeout(() => {
+        setLoadingState(null);
+        navigate("/result");
+      }, 2500);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unexpected generation error.";
+      setLoadingState("error");
+      setLoadingMessage(message);
+      setErrorMessage(message);
+      localStorage.removeItem("generatedVideo");
+      localStorage.setItem("generatedVideoError", message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div 
@@ -243,17 +322,31 @@ export function ImagesToVideoUploadScreen() {
               Choosing 4:3, 3:4, 4:5, or 2.35:1 may crop some uploaded assets.
             </p>
           </div>
+          {errorMessage && (
+            <p className="mt-2 mb-4 text-sm text-red-400 text-center font-bold bg-red-500/10 border border-red-500/30 py-3 px-4 rounded-xl backdrop-blur-sm">
+              {errorMessage}
+            </p>
+          )}
 
           <Button
-            onClick={() => navigate("/images-to-video/preview")}
-            disabled={!canGenerate}
+            onClick={handleGenerateVideo}
+            disabled={!canGenerate || isGenerating}
              className="w-full h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl disabled:opacity-50 disabled:cursor-not-allowed border border-cyan-300/40"
           >
             <Video className="w-5 h-5 mr-2" />
-            Generate video button
+            {isGenerating ? "Generating..." : "Generate video"}
           </Button>
         </motion.div>
       </div>
+
+      <LoadingModal
+        state={loadingState}
+        message={loadingMessage}
+        onDismiss={() => {
+          setLoadingState(null);
+          setErrorMessage("");
+        }}
+      />
     </div>
   );
 }

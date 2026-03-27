@@ -47,7 +47,7 @@ app.get("/", (req, res) => {
   res.send("Backend running 🚀");
 });
 
-// ✅ VIDEO PROCESS FUNCTION (uploaded source)
+// ✅ VIDEO PROCESS FUNCTION (uploaded source - trims/exports video)
 const processVideo = (input, output, duration = 10) => {
   return new Promise((resolve, reject) => {
     ffmpeg(input)
@@ -60,6 +60,48 @@ const processVideo = (input, output, duration = 10) => {
       })
       .on("error", (err) => {
         console.error("❌ FFmpeg Error:", err);
+        reject(err);
+      })
+      .run();
+  });
+};
+
+// ✅ IMAGE → VIDEO FUNCTION (loops single image for given duration)
+const createVideoFromImage = (imagePath, outputPath, duration = 10, frame = "16:9") => {
+  const resolutionMap = {
+    "16:9": "1920x1080",
+    "9:16": "1080x1920",
+    "1:1": "1080x1080",
+    "4:3": "1440x1080",
+    "3:4": "1080x1440",
+    "4:5": "1080x1350",
+    "2.35:1": "1920x817",
+  };
+
+  const size = resolutionMap[frame] || resolutionMap["16:9"];
+
+  return new Promise((resolve, reject) => {
+    let command = ffmpeg(imagePath)
+      .loop()
+      .setDuration(duration)
+      .outputOptions([
+        "-c:v libx264",
+        `-t ${duration}`,
+        "-pix_fmt yuv420p",
+      ]);
+
+    if (size) {
+      command = command.size(size);
+    }
+
+    command
+      .output(outputPath)
+      .on("end", () => {
+        console.log("✅ Image converted to video");
+        resolve(outputPath);
+      })
+      .on("error", (err) => {
+        console.error("❌ FFmpeg Image->Video Error:", err);
         reject(err);
       })
       .run();
@@ -331,6 +373,160 @@ app.post("/generate", async (req, res) => {
     });
   }
 });
+
+// ✅ DIRECT MEDIA-BASED GENERATION (prompt + uploaded pic/video + optional audio)
+// Expects multipart/form-data with fields: prompt, duration, frame
+// and files: media (one or many images/videos), audio (optional)
+app.post(
+  "/generate-from-media",
+  upload.fields([
+    { name: "media", maxCount: 20 },
+    { name: "audio", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const { prompt, duration, frame } = req.body || {};
+      const files = req.files || {};
+      const mediaFiles = Array.isArray(files.media) ? files.media : [];
+      const audioFiles = Array.isArray(files.audio) ? files.audio : [];
+
+      console.log("📍 [API-MEDIA] Direct media generation request received");
+
+      if (!prompt || !String(prompt).trim()) {
+        console.error("❌ [API-MEDIA] Missing prompt");
+        return res.status(400).json({ success: false, error: "Prompt is required" });
+      }
+
+      if (!mediaFiles.length) {
+        console.error("❌ [API-MEDIA] No media files uploaded");
+        return res.status(400).json({ success: false, error: "At least one image or video file is required" });
+      }
+
+      const seconds = Math.max(3, Math.min(180, Number(duration) || 10));
+      const aspect = frame || "16:9";
+
+      console.log("📝 [API-MEDIA] Config:", {
+        prompt,
+        durationSeconds: seconds,
+        frame: aspect,
+        mediaCount: mediaFiles.length,
+        hasAudio: audioFiles.length > 0,
+      });
+
+      // Pick video or images as visual source
+      const videoFile = mediaFiles.find((f) => f.mimetype?.startsWith("video/"));
+      const imageFiles = mediaFiles.filter((f) => f.mimetype?.startsWith("image/"));
+
+      if (!videoFile && !imageFiles.length) {
+        console.error("❌ [API-MEDIA] Unsupported media types");
+        return res.status(400).json({ success: false, error: "Upload at least one image or video file" });
+      }
+
+      const fileName = `direct-media-${Date.now()}.mp4`;
+      const baseOutputPath = `outputs/${fileName}`;
+      let finalOutputPath = baseOutputPath;
+      const generatedTempFiles = [];
+
+      // STEP 1: Build base video from uploaded media
+      if (videoFile) {
+        console.log("🎬 [API-MEDIA] Using uploaded video as source:", videoFile.originalname);
+        await processVideo(videoFile.path, baseOutputPath, seconds);
+      } else if (imageFiles.length === 1) {
+        console.log("🖼️ [API-MEDIA] Using single uploaded image as source:", imageFiles[0].originalname);
+        await createVideoFromImage(imageFiles[0].path, baseOutputPath, seconds, aspect);
+      } else if (imageFiles.length > 1) {
+        console.log("🖼️ [API-MEDIA] Building slideshow from", imageFiles.length, "images");
+        const perImageSeconds = Math.max(1, Math.floor(seconds / imageFiles.length) || 1);
+
+        const segmentBaseNames = [];
+        for (let i = 0; i < imageFiles.length; i++) {
+          const baseName = `segment-${Date.now()}-${i}.mp4`;
+          const segmentPath = `outputs/${baseName}`;
+          await createVideoFromImage(imageFiles[i].path, segmentPath, perImageSeconds, aspect);
+          segmentBaseNames.push(baseName);
+          generatedTempFiles.push(segmentPath);
+        }
+
+        const listFileName = `concat-${Date.now()}.txt`;
+        const listFilePath = `outputs/${listFileName}`;
+        const listContent = segmentBaseNames.map((name) => `file '${name}'`).join("\n");
+        fs.writeFileSync(listFilePath, listContent);
+        generatedTempFiles.push(listFilePath);
+
+        await new Promise((resolve, reject) => {
+          ffmpeg()
+            .input(listFilePath)
+            .inputOptions(["-f concat", "-safe 0"])
+            .outputOptions(["-c copy"])
+            .output(baseOutputPath)
+            .on("end", () => {
+              console.log("✅ [API-MEDIA] Slideshow video created from images");
+              resolve();
+            })
+            .on("error", (err) => {
+              console.error("❌ [API-MEDIA] Error creating slideshow:", err);
+              reject(err);
+            })
+            .run();
+        });
+      }
+
+      // STEP 2: If audio is provided, merge it with the base video
+      if (audioFiles.length) {
+        const audioFile = audioFiles[0];
+        const audioOutputPath = `outputs/with-audio-${Date.now()}.mp4`;
+
+        console.log("🎵 [API-MEDIA] Adding custom audio:", audioFile.originalname);
+
+        await new Promise((resolve, reject) => {
+          ffmpeg()
+            .input(baseOutputPath)
+            .input(audioFile.path)
+            .outputOptions(["-c:v copy", "-c:a aac", "-shortest"])
+            .output(audioOutputPath)
+            .on("end", () => {
+              console.log("✅ [API-MEDIA] Audio merged with video");
+              resolve();
+            })
+            .on("error", (err) => {
+              console.error("❌ [API-MEDIA] Error merging audio:", err);
+              reject(err);
+            })
+            .run();
+        });
+
+        finalOutputPath = audioOutputPath;
+      }
+
+      // STEP 3: Upload final video to Supabase storage
+      console.log("📤 [API-MEDIA] Uploading final video to storage...");
+      const { publicUrl, storagePath } = await uploadToSupabase(finalOutputPath, fileName);
+      console.log("✅ [API-MEDIA] Storage upload complete");
+
+      // STEP 4: Clean up temporary files (best-effort)
+      const tempPaths = [
+        ...mediaFiles.map((f) => f.path),
+        ...audioFiles.map((f) => f.path),
+        ...generatedTempFiles,
+        baseOutputPath !== finalOutputPath ? baseOutputPath : null,
+      ].filter(Boolean);
+
+      tempPaths.forEach((p) => {
+        fs.unlink(p, () => {});
+      });
+
+      return res.json({
+        success: true,
+        video: publicUrl,
+        storage: storagePath,
+      });
+    } catch (error) {
+      const message = error?.message || "Media-based video generation failed.";
+      console.error("❌ [API-MEDIA] Error:", message);
+      return res.status(500).json({ success: false, error: message });
+    }
+  }
+);
 
 // ✅ START SERVER
 app.listen(5000, () => {
