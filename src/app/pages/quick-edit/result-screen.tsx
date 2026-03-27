@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
+import { useEffect } from "react";
 import { 
   ArrowLeft, 
   Download, 
@@ -19,6 +20,38 @@ import { Button } from "../../components/ui/button";
 
 export function QuickEditResultScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { videoUrl, config, metrics } = (location.state as any) || {};
+
+  // If no video was passed, we shouldn't be here
+  if (!videoUrl) {
+    useEffect(() => {
+      navigate("/quick-edit/upload");
+    }, [navigate]);
+    return null;
+  }
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `quick_ai_edit_${Date.now()}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download failed", error);
+    }
+  };
+
+  const handleReEdit = () => {
+    // Go back to the style screen with the original config so the user doesn't lose their settings
+    navigate("/quick-edit/style", { state: config });
+  };
 
   return (
     <div 
@@ -67,9 +100,9 @@ export function QuickEditResultScreen() {
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Quick Metrics</label>
               <div className="space-y-3">
                  {[
-                   { label: 'Edit Time', val: '4.2 seconds', icon: Zap },
-                   { label: 'Scene Cuts', val: '12 Smart Cuts', icon: Video },
-                   { label: 'Resolution', val: 'Full HD 1080p', icon: Files },
+                   { label: 'Edit Time', val: metrics?.editTime || '4.2 seconds', icon: Zap },
+                   { label: 'Scene Cuts', val: metrics?.sceneCuts || '12 Smart Cuts', icon: Video },
+                   { label: 'Resolution', val: metrics?.res || 'Full HD 1080p', icon: Files },
                  ].map((detail) => (
                    <div key={detail.label} className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3">
                       <detail.icon className="w-4 h-4 text-cyan-400" />
@@ -84,7 +117,7 @@ export function QuickEditResultScreen() {
 
            <div className="p-5 rounded-xl border border-dashed border-white/10 bg-white/5 text-center">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-loose">
-                AI has automatically removed silences and applied color grading.
+                AI has automatically removed silences and applied color grading based on the {config?.selectedStyle || 'chosen'} style.
               </p>
            </div>
         </aside>
@@ -101,7 +134,7 @@ export function QuickEditResultScreen() {
               </div>
               <div className="flex gap-3">
                  <button 
-                  onClick={() => navigate("/quick-edit/style")}
+                  onClick={handleReEdit}
                   className="h-10 px-4 rounded-xl bg-white/5 border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-300 hover:bg-white/10 transition-all flex items-center gap-2"
                  >
                     <RefreshCcw className="w-3.5 h-3.5" />
@@ -113,8 +146,14 @@ export function QuickEditResultScreen() {
            <div className="relative flex-1 min-h-[400px]">
               <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 blur-lg opacity-20" />
               <div className="absolute inset-0 border border-white/10 rounded-2xl bg-[#0b0d1f] flex flex-col overflow-hidden relative shadow-2xl">
-                 <div className="flex-1 relative flex items-center justify-center bg-black/40">
-                    <Video className="w-16 h-16 text-cyan-500/10" />
+                 <div className="flex-1 relative flex items-center justify-center bg-black/20">
+                    <video 
+                      src={videoUrl} 
+                      className="max-h-full max-w-full z-10" 
+                      controls 
+                      autoPlay 
+                      loop
+                    />
                     <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 text-cyan-500/5 animate-pulse" />
                  </div>
 
@@ -122,11 +161,12 @@ export function QuickEditResultScreen() {
                  <div className="h-20 bg-[#1a1b2e]/60 backdrop-blur-xl border-t border-white/10 px-8 flex items-center justify-between">
                     <div className="flex flex-col">
                        <span className="text-xs font-bold text-white">quick_edit_export.mp4</span>
-                       <span className="text-[10px] font-bold text-slate-500 uppercase">32.8 MB • Social Optimized</span>
+                       <span className="text-[10px] font-bold text-slate-500 uppercase">Generating ID: {Math.random().toString(36).substr(2, 9)}</span>
                     </div>
                     <motion.button 
                       whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(34,211,238,0.3)' }}
                       whileTap={{ scale: 0.98 }}
+                      onClick={handleDownload}
                       className="px-8 h-12 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-500 text-[#0b0d1f] text-sm font-black uppercase tracking-widest flex items-center gap-3"
                     >
                        <Download className="w-4 h-4" />

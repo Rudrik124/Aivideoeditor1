@@ -100,8 +100,14 @@ export function QuickEditUploadScreen() {
     setAudioError(null);
     
     if (type === 'direct') {
-      if (!file.type.startsWith("audio/")) {
-        setAudioError("Please upload a valid audio file (MP3, WAV, etc.)");
+      // Broaden support to include video containers and even potential image containers with embedded audio
+      const isGenerallySupported = file.type.startsWith("audio/") || 
+                                   file.type.startsWith("video/") ||
+                                   file.type.startsWith("image/") ||
+                                   /\.(mp4|mov|m4v|m4a|aac|wav|mp3|jpeg|jpg)$/i.test(file.name);
+      
+      if (!isGenerallySupported) {
+        setAudioError("Please upload a file that contains audio (MP3, WAV, Video, etc.)");
         return;
       }
     } else {
@@ -166,7 +172,8 @@ export function QuickEditUploadScreen() {
           initialMedia: {
             name: uploadedFile.name,
             type: uploadedFile.type.startsWith('video/') ? 'video' : 'image',
-            preview: previewUrl
+            preview: previewUrl,
+            file: uploadedFile
           },
           initialAudio: audioFile ? {
             name: audioFile.name,
@@ -395,7 +402,7 @@ export function QuickEditUploadScreen() {
                        onClick={() => {
                          const input = document.createElement('input');
                          input.type = 'file';
-                         input.accept = 'video/*';
+                         input.accept = 'video/*,image/*,.mp4,.mov,.jpeg,.jpg';
                          input.onchange = (e) => {
                            const file = (e.target as HTMLInputElement).files?.[0];
                            if (file) handleAudioFile(file, 'extracted');
@@ -416,7 +423,7 @@ export function QuickEditUploadScreen() {
                        onClick={() => {
                          const input = document.createElement('input');
                          input.type = 'file';
-                         input.accept = 'audio/*';
+                         input.accept = 'audio/*,video/*,image/*,.m4a,.aac,.mp4,.mov,.jpeg,.jpg';
                          input.onchange = (e) => {
                            const file = (e.target as HTMLInputElement).files?.[0];
                            if (file) handleAudioFile(file, 'direct');
