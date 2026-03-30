@@ -16,12 +16,15 @@ import {
 	CheckCircle2,
 	ChevronRight,
 	LogOut,
+	User,
+	ChevronDown,
 	Image as ImageIcon
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../context/auth-context";
 import { SuccessToast } from "../components/success-toast";
+import { BrandLogo } from "../components/brand-logo";
 
 const durations = [
 	{ value: 1, label: "1 min" },
@@ -34,7 +37,7 @@ const particles = Array.from({ length: 40 });
 
 export function HomePage() {
 	const navigate = useNavigate();
-	const { isLoggedIn, logout } = useAuth();
+	const { isLoggedIn, logout, session } = useAuth();
 	const [prompt, setPrompt] = useState("");
 	const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 	const [referenceVideo, setReferenceVideo] = useState<File | null>(null);
@@ -43,6 +46,9 @@ export function HomePage() {
 	const [selectedDuration, setSelectedDuration] = useState(2);
 	const [uploading, setUploading] = useState(false);
 	const [showLoginSuccess, setShowLoginSuccess] = useState(false);
+	const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+	const userName = session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || "User";
 
 	useEffect(() => {
 		// Check if user just logged in
@@ -202,27 +208,62 @@ export function HomePage() {
 						initial={{ opacity: 0, x: -20 }}
 						animate={{ opacity: 1, x: 0 }}
 						className="flex items-center gap-2 group cursor-pointer"
-						onClick={() => navigate("/features")}
+						onClick={() => window.location.reload()}
 					>
-						<div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] group-hover:scale-105 transition-all duration-300 border border-white/20 backdrop-blur-md">
-							<Sparkles className="w-6 h-6 text-[#0b0d1f]" />
+						<div className="relative">
+							{/* Theme Background Glow */}
+							<div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+							
+							<BrandLogo size={56} className="relative z-10" />
 						</div>
 						<span className="text-2xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] group-hover:text-cyan-400/80 transition-colors">
-							AIVideo
+							VIREONIX<span className="text-cyan-400">.AI</span>
 						</span>
 					</motion.div>
 
 					<div className="flex items-center gap-6">
-						{isLoggedIn && (
-							<button 
-								onClick={() => logout()}
-								className="text-sm font-semibold text-gray-400 hover:text-white transition-all flex items-center gap-2"
-							>
-								<LogOut className="w-4 h-4" />
-								Logout
-							</button>
+						{isLoggedIn ? (
+							<div className="relative">
+								<motion.button
+									whileHover={{ scale: 1.05 }}
+									whileTap={{ scale: 0.95 }}
+									onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+									className="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-white group shadow-xl"
+								>
+									<div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+										<User className="w-4 h-4 text-[#0b0d1f]" />
+									</div>
+									<span className="text-sm font-bold tracking-tight">{userName}</span>
+									<ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+								</motion.button>
+
+								<AnimatePresence>
+									{isUserMenuOpen && (
+										<motion.div
+											initial={{ opacity: 0, y: 10, scale: 0.95 }}
+											animate={{ opacity: 1, y: 0, scale: 1 }}
+											exit={{ opacity: 0, y: 10, scale: 0.95 }}
+											className="absolute right-0 mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
+										>
+											<div className="p-2">
+												<button 
+													onClick={() => {
+														logout();
+														setIsUserMenuOpen(false);
+													}}
+													className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all text-sm font-bold uppercase tracking-widest group"
+												>
+													<LogOut className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+													<span>Logout</span>
+												</button>
+											</div>
+										</motion.div>
+									)}
+								</AnimatePresence>
+							</div>
+						) : (
+							<button className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">Documentation</button>
 						)}
-						<button className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">Documentation</button>
 					</div>
 				</div>
 

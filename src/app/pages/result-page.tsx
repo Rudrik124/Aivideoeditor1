@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { Download, Sparkles, Share2 } from "lucide-react";
+import { Download, Sparkles, Share2, ArrowLeft } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { BrandLogo } from "../components/brand-logo";
 
 export function ResultPage() {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ export function ResultPage() {
 
   return (
     <div 
-      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
+      className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20 text-slate-200"
       style={{
         background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
         backgroundAttachment: 'fixed'
@@ -47,7 +48,41 @@ export function ResultPage() {
         style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
       />
 
-      <div className="container mx-auto px-4 py-12 md:py-20 max-w-6xl relative z-10">
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-6xl relative z-10">
+        
+        {/* Navigation Header */}
+        <div className="flex justify-between items-center mb-8">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-6"
+          >
+            <div
+              className="flex items-center gap-2 group cursor-pointer"
+              onClick={() => window.location.reload()}
+            >
+              <div className="relative">
+                {/* Theme Background Glow */}
+                <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <BrandLogo size={48} className="relative z-10" />
+              </div>
+              <span className="text-xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">
+                VIREONIX<span className="text-cyan-400">.AI</span>
+              </span>
+            </div>
+
+            <div className="h-6 w-[1px] bg-white/10" />
+
+            <button
+              onClick={() => navigate("/features")}
+              className="flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm font-bold uppercase tracking-widest">Back</span>
+            </button>
+          </motion.div>
+        </div>
         {/* Success Message */}
         <motion.div
            initial={{ opacity: 0, y: -20 }}

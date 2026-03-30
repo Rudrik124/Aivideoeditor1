@@ -17,7 +17,7 @@ import {
   Monitor,
   Smartphone,
   Play,
-  Settings,
+  Settings2,
   Layers,
   ChevronRight,
   Info,
@@ -31,14 +31,34 @@ import {
   Scissors,
   FileAudio,
   Timer,
+  Type,
+  User,
   Palette,
   Sparkle,
-  Download
+  Download,
+  Crown
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router";
 import { Button } from "../../components/ui/button";
 import { Switch } from "../../components/ui/switch";
 import { Textarea } from "../../components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../components/ui/dialog";
+import { Label } from "../../components/ui/label";
+import { 
+  Undo2, 
+  Redo2, 
+  VolumeX, 
+  Volume2 as VolumeIcon,
+  Activity
+} from "lucide-react";
+import { HistoryDialog, HistoryItem, saveToHistory } from "../../components/history-dialog";
+import { PremiumModal } from "../../components/premium-modal";
 
 const editingStyles = [
   {
@@ -100,6 +120,39 @@ export function QuickEditStyleScreen() {
     faceTracking: true,
   });
   const [prompt, setPrompt] = useState("");
+  
+  // -- Video Playback State --
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  // -- Advanced Config State --
+  const [isAdvancedConfigOpen, setIsAdvancedConfigOpen] = useState(false);
+  const [watermark, setWatermark] = useState(true); // Default to ON
+  const [isMutedAll, setIsMutedAll] = useState(false);
+  const [mediaDurations, setMediaDurations] = useState<{ [id: string]: number }>({});
+
+  // -- History State --
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // -- Premium State --
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState<"watermark" | "4k" | "60fps" | "general">("general");
+
+  const handlePremiumIntercept = (feature: "watermark" | "4k" | "60fps") => {
+    setPremiumFeature(feature);
+    setIsPremiumModalOpen(true);
+  };
+
+  const handleHistorySelect = (item: HistoryItem) => {
+    console.log("Loading project from history:", item);
+    // Logic to reload Quick Edit project
+    if (item.tool === 'quick-edit' && item.config) {
+      // Re-initialize state from config
+    }
+    setIsHistoryOpen(false);
+  };
 
   // -- Initialize from Transition State --
   useEffect(() => {
@@ -109,7 +162,12 @@ export function QuickEditStyleScreen() {
         initialAudio?: { name: string, type: 'extracted' | 'direct' }
       };
 
+<<<<<<< Updated upstream
       if (initialMedia) {
+=======
+      if (initialMedia && initialMedia.file) {
+        const previewUrl = URL.createObjectURL(initialMedia.file);
+>>>>>>> Stashed changes
         setMediaItems([{
           id: 'initial',
           file: null,
@@ -129,6 +187,82 @@ export function QuickEditStyleScreen() {
     }
   }, [location.state]);
 
+<<<<<<< Updated upstream
+=======
+  // -- Video Playback Management --
+  useEffect(() => {
+    const playVideo = async () => {
+      if (isPlaying && videoRef.current) {
+        try {
+          await videoRef.current.play();
+        } catch (err) {
+          console.error("Playback error", err);
+        }
+      }
+    };
+    playVideo();
+  }, [activePreviewId, isPlaying]);
+
+  const togglePlayback = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  };
+
+  const handleVideoEnd = () => {
+    const currentIndex = mediaItems.findIndex(i => i.id === activePreviewId);
+    if (currentIndex !== -1 && currentIndex < mediaItems.length - 1) {
+      const nextId = mediaItems[currentIndex + 1].id;
+      // Delay transition slightly to avoid browser playback locks on end
+      setTimeout(() => {
+        setActivePreviewId(nextId);
+      }, 100);
+    } else {
+      setIsPlaying(false);
+    }
+  };
+
+  const currentMediaIndex = mediaItems.findIndex(i => i.id === activePreviewId);
+  const totalDuration = mediaItems.reduce((acc, item) => acc + (mediaDurations[item.id] || 0), 0);
+  const globalCurrentTime = mediaItems.slice(0, currentMediaIndex).reduce((acc, item) => acc + (mediaDurations[item.id] || 0), 0) + currentTime;
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current && activePreviewId) {
+      const vidDuration = videoRef.current.duration;
+      setDuration(vidDuration);
+      setMediaDurations(prev => ({ ...prev, [activePreviewId]: vidDuration }));
+    }
+  };
+
+  // Keep track of mediaItems in a ref for cleanup on unmount
+  const mediaItemsRef = useRef(mediaItems);
+  useEffect(() => {
+    mediaItemsRef.current = mediaItems;
+  }, [mediaItems]);
+
+  // Handle cleanup of all blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      mediaItemsRef.current.forEach(item => {
+        if (item.preview && item.preview.startsWith('blob:')) {
+          URL.revokeObjectURL(item.preview);
+        }
+      });
+    };
+  }, []);
+
+>>>>>>> Stashed changes
   // -- Effects --
   useEffect(() => {
     const style = editingStyles.find(s => s.id === selectedStyle);
@@ -163,12 +297,18 @@ export function QuickEditStyleScreen() {
       preview: URL.createObjectURL(file),
       type: file.type.startsWith('video/') ? 'video' as const : 'image' as const
     }));
-    setMediaItems(prev => {
-      if (prev.length === 0 && newItems.length > 0) {
-        setActivePreviewId(newItems[0].id);
-      }
-      return [...prev, ...newItems];
-    });
+    
+    if (newItems.length > 0) {
+      setMediaItems(prev => {
+        if (prev.length === 0) {
+          setActivePreviewId(newItems[0].id);
+        }
+        return [...prev, ...newItems];
+      });
+    }
+    
+    // Reset input value so the same file(s) can be selected again
+    e.target.value = "";
   };
 
   const removeMediaItem = (id: string) => {
@@ -202,6 +342,7 @@ export function QuickEditStyleScreen() {
   };
 
   const handleGenerate = () => {
+<<<<<<< Updated upstream
     navigate("/quick-edit/processing");
   };
 
@@ -212,6 +353,41 @@ export function QuickEditStyleScreen() {
         background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
       }}
     >
+=======
+    const editConfig = {
+      mediaItems: mediaItems.map(item => ({
+        id: item.id,
+        file: item.file,
+        preview: item.preview,
+        type: item.type,
+      })),
+      selectedStyle,
+      aspectRatio,
+      fps,
+      exportQuality,
+      aiOptions,
+      prompt,
+      audioTracks,
+      watermark, 
+      muteAll: isMutedAll,
+    };
+    saveToHistory({
+      title: mediaItems[0]?.file?.name || "Quick AI Studio Project",
+      tool: 'quick-edit',
+      config: editConfig
+    });
+    navigate("/quick-edit/processing", { state: editConfig });
+  };
+
+  return (
+    <>
+      <div
+        className="h-screen w-full flex flex-col overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white text-slate-200"
+        style={{
+          background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
+        }}
+      >
+>>>>>>> Stashed changes
       {/* Dynamic Background Effects */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-cyan-500/5 blur-[120px] rounded-full" />
@@ -224,11 +400,14 @@ export function QuickEditStyleScreen() {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate("/quick-edit/upload")}
-            className="p-2 hover:bg-white/5 rounded-lg transition-colors text-slate-400 hover:text-white"
+            className="flex items-center gap-2 text-[#94a3b8] hover:text-white transition-all group px-3 py-1.5 rounded-lg hover:bg-white/5"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest">Back</span>
           </button>
-          <div className="h-8 w-[1px] bg-white/10 mx-2" />
+
+          <div className="h-6 w-[1px] bg-white/10" />
+
           <div className="flex flex-col">
             <h1 className="text-sm font-bold tracking-tight text-white uppercase tracking-[0.1em]">Quick Edit <span className="text-cyan-400">Studio</span></h1>
             <div className="flex items-center gap-2">
@@ -239,18 +418,131 @@ export function QuickEditStyleScreen() {
         </div>
         
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5">
-            <Settings className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-[11px] font-bold text-slate-300">Advanced Config</span>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-4 py-1.5 flex items-center gap-2"
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-[#94a3b8] hover:text-white group shadow-xl"
           >
-            <History className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-[11px] font-bold text-slate-300">Edit History</span>
-          </motion.button>
+            <History className="w-4 h-4 group-hover:rotate-[-45deg] transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest">History</span>
+          </button>
+
+          <Dialog open={isAdvancedConfigOpen} onOpenChange={setIsAdvancedConfigOpen}>
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-[#94a3b8] hover:text-white group shadow-xl">
+                <Settings2 className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+                <span className="text-[11px] font-bold uppercase tracking-widest">Advanced Config</span>
+              </button>
+            </DialogTrigger>
+            <DialogContent className="bg-[#0b0d1f]/95 backdrop-blur-2xl border-white/10 text-white sm:max-w-[425px] rounded-3xl shadow-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tighter">
+                  <Settings2 className="w-5 h-5 text-cyan-400" />
+                  Production Settings
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="grid gap-6 py-6 font-sans">
+                {/* Export Quality */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Download className="w-4 h-4 text-emerald-400" />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Export Quality</Label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['720p', '1080p', '4K'].map((res) => {
+                      const isPremium = res === '4K';
+                      return (
+                        <button
+                          key={res}
+                          onClick={() => isPremium ? handlePremiumIntercept("4k") : setExportQuality(res as any)}
+                          className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex flex-col items-center gap-1 ${
+                            exportQuality === res 
+                              ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]' 
+                              : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'
+                          }`}
+                        >
+                          <span>{res}</span>
+                          {isPremium && (
+                            <div className="flex items-center gap-1 text-[8px] text-amber-500">
+                              <Crown className="w-2 h-2" />
+                              <span>PREMIUM</span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Frame Rate */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                     <Zap className="w-3 h-3" /> Target Frame Rate
+                  </label>
+                  <div className="flex gap-2">
+                    {[24, 30, 60].map((f) => {
+                      const isPremium = f === 60;
+                      return (
+                        <button
+                          key={f}
+                          onClick={() => isPremium ? handlePremiumIntercept("60fps") : setFps(f)}
+                          className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex flex-col items-center gap-1 ${
+                            fps === f
+                              ? 'bg-indigo-500/10 border-indigo-500 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
+                              : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'
+                          }`}
+                        >
+                          <span>{f} FPS</span>
+                          {isPremium && (
+                            <div className="flex items-center gap-1 text-[8px] text-amber-500">
+                              <Crown className="w-2 h-2" />
+                              <span>PREMIUM</span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Watermark Toggle */}
+                <div className="pt-4 border-t border-white/5">
+                  <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-orange-500/10 text-orange-400">
+                         <Layers className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white">Production Watermark</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Branded: VIREONIX</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 rounded-md text-amber-500 text-[8px] font-black uppercase tracking-widest">
+                         <Crown className="w-3 h-3" />
+                         <span>PREMIUM TO REMOVE</span>
+                      </div>
+                      <button
+                        onClick={() => handlePremiumIntercept("watermark")}
+                        className={`w-12 h-6 rounded-full relative transition-all bg-cyan-600 shadow-[0_0_10px_rgba(34,211,238,0.3)]`}
+                      >
+                        <div className={`absolute top-1 right-1 w-4 h-4 rounded-full bg-white transition-all`} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-white/5">
+                <Button
+                  onClick={() => setIsAdvancedConfigOpen(false)}
+                  className="px-8 bg-white/10 hover:bg-white/20 text-white border-white/10 hover:border-white/20 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all py-6 h-auto"
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </header>
 
@@ -264,10 +556,17 @@ export function QuickEditStyleScreen() {
             {/* AI Control Panel */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
+<<<<<<< Updated upstream
                  <div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center border border-white/10">
                    <Zap className="w-3.5 h-3.5 text-cyan-400" />
                  </div>
                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">AI Control Center</label>
+=======
+                <div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center border border-white/10">
+                  <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                </div>
+                <label className="text-xs font-bold text-slate-200 uppercase tracking-widest opacity-80">AI Control Center</label>
+>>>>>>> Stashed changes
               </div>
 
               <div className="space-y-2">
@@ -292,6 +591,7 @@ export function QuickEditStyleScreen() {
               </div>
             </div>
 
+<<<<<<< Updated upstream
             {/* Prompt Enhancement */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -338,6 +638,33 @@ export function QuickEditStyleScreen() {
                     </button>
                   ))}
                </div>
+=======
+
+            {/* Quick Action Icons [REPLACING with full Toolbar] */}
+            <div className="space-y-4 pt-2">
+              <label className="text-[10px] font-black text-slate-200 uppercase tracking-widest px-1 opacity-80">Production Hub</label>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { icon: Scissors, label: 'Trim', color: 'text-amber-400' },
+                  { icon: Layers, label: 'Transitions', color: 'text-purple-400' },
+                  { icon: Type, label: 'Captions', color: 'text-cyan-400' },
+                  { icon: Wand2, label: 'Effects', color: 'text-pink-400' },
+                  { icon: Palette, label: 'Filters', color: 'text-emerald-400' },
+                  { icon: Music, label: 'Audio Editor', color: 'text-blue-400' },
+                  { icon: Activity, label: 'Beats', color: 'text-red-400' },
+                  { icon: Layers, label: 'Overlays', color: 'text-orange-400' },
+                  { icon: Sparkle, label: 'Elements', color: 'text-yellow-400' },
+                ].map((tool, index) => (
+                  <button
+                    key={index}
+                    className="flex flex-col items-center gap-2.5 p-3.5 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 hover:border-cyan-500/50 transition-all group shadow-lg"
+                  >
+                    <tool.icon className={`w-5 h-5 ${tool.color} group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]`} />
+                    <span className="text-[8px] font-black text-slate-200 uppercase tracking-widest text-center group-hover:text-white transition-colors">{tool.label}</span>
+                  </button>
+                ))}
+              </div>
+>>>>>>> Stashed changes
             </div>
 
           </div>
@@ -352,6 +679,7 @@ export function QuickEditStyleScreen() {
                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
             </div>
 
+<<<<<<< Updated upstream
                <motion.div 
                   layout
                   animate={{ 
@@ -396,6 +724,68 @@ export function QuickEditStyleScreen() {
                      </div>
                    )}
                  </AnimatePresence>
+=======
+            <motion.div
+              layout
+              animate={{
+                aspectRatio: getRatioValue()
+              }}
+              className="relative h-full max-w-4xl max-h-[85%] rounded-2xl bg-slate-900 border border-white/20 shadow-2xl overflow-hidden shadow-cyan-500/5 flex items-center justify-center transition-all duration-500"
+            >
+              <AnimatePresence>
+                {activePreviewId && mediaItems.find(i => i.id === activePreviewId) ? (
+                  <motion.div
+                    key={activePreviewId}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full h-full flex items-center justify-center relative"
+                  >
+                    {mediaItems.find(i => i.id === activePreviewId)?.type === 'video' ? (
+                      <video
+                        ref={videoRef}
+                        src={mediaItems.find(i => i.id === activePreviewId)?.preview}
+                        className="w-full h-full object-contain"
+                        onTimeUpdate={handleTimeUpdate}
+                        onLoadedMetadata={handleLoadedMetadata}
+                        onEnded={handleVideoEnd}
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                        muted={isMutedAll}
+                        playsInline
+                        autoPlay={isPlaying}
+                      />
+                    ) : (
+                      <img
+                        src={mediaItems.find(i => i.id === activePreviewId)?.preview}
+                        className="w-full h-full object-contain"
+                        alt="Preview"
+                      />
+                    )}
+
+                    {/* Watermark Overlay */}
+                    {watermark && (
+                      <div className="absolute bottom-4 right-4 z-30 pointer-events-none opacity-60 mix-blend-screen select-none">
+                        <span className="text-[14px] font-black tracking-[0.3em] uppercase text-white drop-shadow-[0_2px_10px_rgba(34,211,238,0.5)]">
+                          VIREONIX PREMIUM
+                        </span>
+                      </div>
+                    )}
+                  </motion.div>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Video className="w-16 h-16 text-cyan-400/10" />
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group cursor-pointer hover:bg-white/10 transition-all">
+                        <Play className="w-5 h-5 text-white/40 ml-1 group-hover:text-white transition-colors" />
+                      </div>
+                      <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Source Preview</span>
+                    </div>
+                  </div>
+                )}
+              </AnimatePresence>
+>>>>>>> Stashed changes
 
               {/* HUD Overlays */}
               <div className="absolute top-4 right-4 flex flex-col gap-2">
@@ -409,6 +799,7 @@ export function QuickEditStyleScreen() {
 
               {/* Transport Controls */}
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-2 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 shadow-2xl">
+<<<<<<< Updated upstream
                  <button className="text-slate-400 hover:text-white transition-colors">
                    <RefreshCw className="w-4 h-4" />
                  </button>
@@ -418,10 +809,34 @@ export function QuickEditStyleScreen() {
                  <button className="text-slate-400 hover:text-white transition-colors">
                    <Settings className="w-4 h-4" />
                  </button>
+=======
+                <button className="text-slate-400 hover:text-white transition-colors">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={togglePlayback}
+                  className="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-[#0b0d1f] hover:scale-105 transition-all"
+                >
+                  {isPlaying ? (
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                       <div className="flex gap-1">
+                          <div className="w-1 h-4 bg-current rounded-full" />
+                          <div className="w-1 h-4 bg-current rounded-full" />
+                       </div>
+                    </motion.div>
+                  ) : (
+                    <Play className="w-5 h-5 fill-current ml-0.5" />
+                  )}
+                </button>
+                <button className="text-slate-400 hover:text-white transition-colors">
+                  <Settings2 className="w-4 h-4" />
+                </button>
+>>>>>>> Stashed changes
               </div>
             </motion.div>
           </div>
 
+<<<<<<< Updated upstream
           {/* Media Import & Arrangement Section */}
           <div className="flex-none p-6 space-y-6 border-t border-white/10 bg-black/20 backdrop-blur-md">
             
@@ -447,6 +862,55 @@ export function QuickEditStyleScreen() {
                       className={`group relative flex-none h-full rounded-xl border transition-all cursor-pointer overflow-hidden ring-1 shadow-xl ${
                         activePreviewId === item.id 
                         ? 'border-cyan-500 ring-cyan-500/50 scale-[1.02] shadow-cyan-500/10' 
+=======
+          {/* Media & Audio Sequence Viewers */}
+          <div className="flex-none bg-black/20 backdrop-blur-md border-t border-white/5 p-6 custom-scrollbar overflow-y-auto max-h-[35%]">
+            <div className="flex flex-col gap-6">
+              
+              {/* Media Sequence Header Tools */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Video className="w-4 h-4 text-cyan-400" />
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Media Sequence</label>
+                    <span className="px-2 py-0.5 rounded-md bg-white/5 text-[9px] font-bold text-slate-500 uppercase">{mediaItems.length} Items</span>
+                  </div>
+                  
+                  <div className="h-4 w-[1px] bg-white/10" />
+                  
+                  {/* Mute All Toggle */}
+                  <button 
+                    onClick={() => setIsMutedAll(!isMutedAll)}
+                    className={`p-1.5 rounded-lg transition-all ${isMutedAll ? 'bg-red-500/20 text-red-500' : 'bg-white/5 text-slate-400 hover:text-white'}`}
+                    title="Mute All Previews"
+                  >
+                    {isMutedAll ? <VolumeX className="w-3.5 h-3.5" /> : <VolumeIcon className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button className="p-2 rounded-lg bg-white/5 border border-white/5 text-slate-500 hover:text-white transition-all">
+                    <Undo2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button className="p-2 rounded-lg bg-white/5 border border-white/5 text-slate-500 hover:text-white transition-all">
+                    <Redo2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Horizontal Media Sequence */}
+              <div className="h-28 flex items-center gap-4 overflow-x-auto custom-scrollbar pb-2 px-2">
+                {mediaItems.map((item) => (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    onClick={() => setActivePreviewId(item.id)}
+                    style={{ aspectRatio: getRatioValue() }}
+                    className={`group relative flex-none h-full rounded-xl border transition-all cursor-pointer overflow-hidden ring-1 shadow-xl ${activePreviewId === item.id
+                        ? 'border-cyan-500 ring-cyan-500/50 scale-[1.02] shadow-cyan-500/10'
+>>>>>>> Stashed changes
                         : 'border-white/10 bg-slate-900 ring-white/5 hover:border-white/30'
                       }`}
                     >
@@ -485,6 +949,7 @@ export function QuickEditStyleScreen() {
                </div>
             </div>
 
+<<<<<<< Updated upstream
             {/* Audio Tracks Section [NEW] */}
             <div className="space-y-3">
                <div className="flex items-center justify-between px-2">
@@ -499,6 +964,22 @@ export function QuickEditStyleScreen() {
                     <Plus className="w-3 h-3" /> Add Audio
                   </button>
                </div>
+=======
+            {/* Audio Tracks Section */}
+            <div className="space-y-3 mt-6">
+              <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Audio Tracks</span>
+                </div>
+                <button
+                  onClick={() => setShowAudioChoice(!showAudioChoice)}
+                  className="text-[9px] font-black text-cyan-400 uppercase tracking-widest hover:text-cyan-300 transition-colors flex items-center gap-1.5"
+                >
+                  <Plus className="w-3 h-3" /> Add Audio
+                </button>
+              </div>
+>>>>>>> Stashed changes
 
                <div className="relative">
                  <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar px-2">
@@ -689,6 +1170,7 @@ export function QuickEditStyleScreen() {
               </AnimatePresence>
             </div>
 
+<<<<<<< Updated upstream
             <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-600/10 to-transparent border border-cyan-500/20">
                <div className="flex items-center gap-3 mb-2">
                  <Sparkles className="w-4 h-4 text-cyan-400" />
@@ -698,6 +1180,9 @@ export function QuickEditStyleScreen() {
                  Studio uses local GPU acceleration for real-time scene synthesis and platform-optimized rendering.
                </p>
             </div>
+=======
+
+>>>>>>> Stashed changes
 
             {/* Project Export Quality [NEW] */}
             <div className="space-y-4 pt-4 border-t border-white/5">
@@ -756,6 +1241,7 @@ export function QuickEditStyleScreen() {
             <div className="absolute inset-0 bg-white/5 rounded-xl border border-white/10 transition-colors" />
             
             {/* Layers Visualization */}
+<<<<<<< Updated upstream
             <div className="absolute inset-y-[2px] left-1 right-1 flex gap-1">
                {mediaItems.map((_, i) => (
                  <div key={i} className="flex-1 h-full bg-cyan-500/20 border-x border-cyan-500/40 first:rounded-l-lg last:rounded-r-lg" />
@@ -765,11 +1251,38 @@ export function QuickEditStyleScreen() {
                     <span className="text-[8px] font-bold text-slate-700 uppercase tracking-widest">No Media Ingested</span>
                  </div>
                )}
+=======
+            <div className="absolute inset-y-[2px] left-1 right-1 flex gap-[2px]">
+              {mediaItems.map((item, i) => {
+                const itemDuration = mediaDurations[item.id] || 0;
+                const widthPercent = totalDuration > 0 ? (itemDuration / totalDuration) * 100 : (100 / mediaItems.length);
+                return (
+                  <div 
+                    key={item.id} 
+                    style={{ width: `${widthPercent}%` }}
+                    className={`h-full border-x transition-all duration-500 ${activePreviewId === item.id ? 'bg-cyan-500/30 border-cyan-500/50' : 'bg-white/5 border-white/10'} first:rounded-l-lg last:rounded-r-lg`} 
+                  />
+                );
+              })}
+              {mediaItems.length === 0 && (
+                <div className="flex-1 h-full bg-white/5 border border-dashed border-white/10 rounded-lg flex items-center justify-center">
+                  <span className="text-[8px] font-bold text-slate-700 uppercase tracking-widest">No Media Ingested</span>
+                </div>
+              )}
+>>>>>>> Stashed changes
             </div>
             
             {/* Playhead */}
+<<<<<<< Updated upstream
             <div className="absolute top-0 bottom-0 left-[20%] w-[1px] bg-cyan-400 z-10 shadow-[0_0_10px_rgba(34,211,238,0.8)]">
                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-cyan-400" />
+=======
+            <div 
+              className="absolute top-0 bottom-0 w-[1px] bg-cyan-400 z-10 shadow-[0_0_10px_rgba(34,211,238,0.8)] transition-all duration-100 ease-linear"
+              style={{ left: `${totalDuration > 0 ? (globalCurrentTime / totalDuration) * 100 : 0}%` }}
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-cyan-400" />
+>>>>>>> Stashed changes
             </div>
           </div>
         </div>
@@ -777,6 +1290,7 @@ export function QuickEditStyleScreen() {
         {/* Global Controls */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+<<<<<<< Updated upstream
              <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all font-bold text-[10px] uppercase tracking-widest">
                 <Smartphone className="w-4 h-4 text-purple-400" />
                 <span>Format: {aspectRatio}</span>
@@ -786,6 +1300,13 @@ export function QuickEditStyleScreen() {
                 <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                 <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Pipeline Verified</span>
              </div>
+=======
+            <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all font-bold text-[10px] uppercase tracking-widest">
+              <Smartphone className="w-4 h-4 text-purple-400" />
+              <span>Format: {aspectRatio}</span>
+              <ChevronRight className="w-3 h-3 text-slate-500" />
+            </button>
+>>>>>>> Stashed changes
           </div>
 
           <div className="flex items-center gap-3">
@@ -814,6 +1335,7 @@ export function QuickEditStyleScreen() {
 
       </footer>
 
+<<<<<<< Updated upstream
       {/* Custom Styles */}
       <style dangerouslySetInnerHTML={{ __html: `
         .custom-scrollbar::-webkit-scrollbar {
@@ -832,6 +1354,41 @@ export function QuickEditStyleScreen() {
         }
       `}} />
 
+=======
+>>>>>>> Stashed changes
     </div>
+
+    <HistoryDialog 
+      open={isHistoryOpen} 
+      onOpenChange={setIsHistoryOpen}
+      onSelect={handleHistorySelect}
+      currentTool="quick-edit"
+    />
+
+    <PremiumModal 
+      open={isPremiumModalOpen} 
+      onOpenChange={setIsPremiumModalOpen}
+      feature={premiumFeature}
+    />
+
+    {/* Custom Styles */}
+    <style dangerouslySetInnerHTML={{
+      __html: `
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(34, 211, 238, 0.2);
+      }
+    `}} />
+    </>
   );
 }

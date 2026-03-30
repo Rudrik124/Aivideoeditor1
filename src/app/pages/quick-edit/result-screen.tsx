@@ -16,6 +16,7 @@ import {
   Smartphone
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { BrandLogo } from "../../components/brand-logo";
 
 export function QuickEditResultScreen() {
   const navigate = useNavigate();
@@ -35,13 +36,25 @@ export function QuickEditResultScreen() {
 
       <header className="h-16 flex-none border-b border-white/10 flex items-center justify-between px-6 bg-black/20 backdrop-blur-3xl z-20">
         <div className="flex items-center gap-4">
+            <div
+              className="flex items-center gap-2 group cursor-pointer"
+              onClick={() => window.location.reload()}
+            >
+              <div className="relative">
+                {/* Theme Background Glow */}
+                <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <BrandLogo size={32} className="relative z-10" />
+              </div>
+            </div>
+          <div className="h-8 w-[1px] bg-white/10 mx-2" />
           <button 
             onClick={() => navigate("/features")}
             className="p-2 hover:bg-white/5 rounded-lg transition-colors text-slate-400 hover:text-white"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="h-8 w-[1px] bg-white/10 mx-2" />
+          <div className="h-4 w-[1px] bg-white/10 mx-2" />
           <div className="flex flex-col">
             <h1 className="text-sm font-bold tracking-tight text-white uppercase tracking-[0.1em]">Quick Edit <span className="text-cyan-400">Studio</span></h1>
             <div className="flex items-center gap-2">
