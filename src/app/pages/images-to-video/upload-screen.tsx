@@ -26,9 +26,7 @@ import { Button } from "../../components/ui/button";
 import { BrandLogo } from "../../components/brand-logo";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
-<<<<<<< Updated upstream
 import { LoadingModal, type LoadingState } from "../../components/loading-modal";
-=======
 import { HistoryDialog, type HistoryItem, saveToHistory } from "../../components/history-dialog";
 import { 
   Dialog, 
@@ -40,7 +38,6 @@ import {
 import { Label } from "../../components/ui/label";
 import { Switch } from "../../components/ui/switch";
 import { PremiumModal } from "../../components/premium-modal";
->>>>>>> Stashed changes
 
 export function ImagesToVideoUploadScreen() {
   const navigate = useNavigate();
@@ -588,30 +585,25 @@ export function ImagesToVideoUploadScreen() {
           )}
 
           <Button
-<<<<<<< Updated upstream
-            onClick={handleGenerateVideo}
-            disabled={!canGenerate || isGenerating}
-=======
-            onClick={() => {
-              const config = {
-                prompt,
-                duration: durationMinutes * 60 + durationSeconds,
-                ratio: selectedRatio,
-                mediaFiles: mediaFiles.map(f => f.name),
-                audioFile: audioFile?.name,
-                quality: exportQuality,
-                fps,
-                watermark
-              };
-              saveToHistory({
-                title: prompt.slice(0, 30) + (prompt.length > 30 ? "..." : ""),
-                tool: 'avatar',
-                config
-              });
-              navigate("/images-to-video/preview", { state: config });
-            }}
-            disabled={!canGenerate}
->>>>>>> Stashed changes
+          onClick={() => {
+            const config = {
+              prompt,
+              duration: durationMinutes * 60 + durationSeconds,
+              ratio: selectedRatio,
+              mediaFiles: mediaFiles.map(f => f.name),
+              audioFile: audioFile?.name,
+              quality: exportQuality,
+              fps,
+              watermark
+            };
+            saveToHistory({
+              title: prompt.slice(0, 30) + (prompt.length > 30 ? "..." : ""),
+              tool: 'avatar',
+              config
+            });
+            handleGenerateVideo();
+          }}
+          disabled={!canGenerate || isGenerating}
              className="w-full h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl disabled:opacity-50 disabled:cursor-not-allowed border border-cyan-300/40"
           >
             <Video className="w-5 h-5 mr-2" />
@@ -620,7 +612,6 @@ export function ImagesToVideoUploadScreen() {
         </motion.div>
       </div>
 
-<<<<<<< Updated upstream
       <LoadingModal
         state={loadingState}
         message={loadingMessage}
@@ -628,7 +619,8 @@ export function ImagesToVideoUploadScreen() {
           setLoadingState(null);
           setErrorMessage("");
         }}
-=======
+      />
+
       <HistoryDialog 
         open={isHistoryOpen} 
         onOpenChange={setIsHistoryOpen}
@@ -640,7 +632,6 @@ export function ImagesToVideoUploadScreen() {
         open={isPremiumModalOpen} 
         onOpenChange={setIsPremiumModalOpen}
         feature={premiumFeature}
->>>>>>> Stashed changes
       />
     </div>
   );

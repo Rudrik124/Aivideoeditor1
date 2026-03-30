@@ -114,10 +114,6 @@ export function QuickEditUploadScreen() {
     setAudioError(null);
 
     if (type === 'direct') {
-<<<<<<< Updated upstream
-      if (!file.type.startsWith("audio/")) {
-        setAudioError("Please upload a valid audio file (MP3, WAV, etc.)");
-=======
       // Broaden support to include video containers and even potential image containers with embedded audio
       const isGenerallySupported = file.type.startsWith("audio/") ||
         file.type.startsWith("video/") ||
@@ -126,7 +122,6 @@ export function QuickEditUploadScreen() {
 
       if (!isGenerallySupported) {
         setAudioError("Please upload a file that contains audio (MP3, WAV, Video, etc.)");
->>>>>>> Stashed changes
         return;
       }
     } else {
@@ -190,14 +185,9 @@ export function QuickEditUploadScreen() {
         state: {
           initialMedia: {
             name: uploadedFile.name,
-<<<<<<< Updated upstream
             type: uploadedFile.type.startsWith('video/') ? 'video' : 'image',
-            preview: previewUrl
-=======
-            type: 'video',
             preview: previewUrl,
             file: uploadedFile
->>>>>>> Stashed changes
           },
           initialAudio: audioFile ? {
             name: audioFile.name,
@@ -499,26 +489,6 @@ export function QuickEditUploadScreen() {
                     exit={{ opacity: 0, y: 10 }}
                     className="absolute inset-0 bg-[#0b0d1f] z-20 flex items-center justify-around px-8"
                   >
-<<<<<<< Updated upstream
-                     <button 
-                       onClick={() => {
-                         const input = document.createElement('input');
-                         input.type = 'file';
-                         input.accept = 'video/*';
-                         input.onchange = (e) => {
-                           const file = (e.target as HTMLInputElement).files?.[0];
-                           if (file) handleAudioFile(file, 'extracted');
-                         };
-                         input.click();
-                       }}
-                       className="flex flex-col items-center gap-2 group p-4 rounded-xl hover:bg-white/5 transition-all"
-                     >
-                        <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-500/30 group-hover:scale-110 transition-transform">
-                           <Scissors className="w-5 h-5 text-purple-400" />
-                        </div>
-                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Extract from Video</span>
-                     </button>
-=======
                     <button
                       onClick={() => {
                         const input = document.createElement('input');
@@ -537,30 +507,9 @@ export function QuickEditUploadScreen() {
                       </div>
                       <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Extract from Video</span>
                     </button>
->>>>>>> Stashed changes
 
                     <div className="h-8 w-[1px] bg-white/10" />
 
-<<<<<<< Updated upstream
-                     <button 
-                       onClick={() => {
-                         const input = document.createElement('input');
-                         input.type = 'file';
-                         input.accept = 'audio/*';
-                         input.onchange = (e) => {
-                           const file = (e.target as HTMLInputElement).files?.[0];
-                           if (file) handleAudioFile(file, 'direct');
-                         };
-                         input.click();
-                       }}
-                       className="flex flex-col items-center gap-2 group p-4 rounded-xl hover:bg-white/5 transition-all"
-                     >
-                        <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30 group-hover:scale-110 transition-transform">
-                           <FileAudio className="w-5 h-5 text-cyan-400" />
-                        </div>
-                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Upload Audio File</span>
-                     </button>
-=======
                     <button
                       onClick={() => {
                         const input = document.createElement('input');
@@ -579,7 +528,6 @@ export function QuickEditUploadScreen() {
                       </div>
                       <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Upload Audio File</span>
                     </button>
->>>>>>> Stashed changes
 
                     <button
                       onClick={() => setShowAudioChoice(false)}
