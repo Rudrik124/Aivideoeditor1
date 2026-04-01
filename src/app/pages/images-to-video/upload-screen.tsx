@@ -40,6 +40,87 @@ export function ImagesToVideoUploadScreen() {
   const [exportQuality, setExportQuality] = useState("1080P");
   const [frameRate, setFrameRate] = useState("30 FPS");
   const [isWatermarkEnabled, setIsWatermarkEnabled] = useState(true);
+import { 
+  ArrowLeft, 
+  AudioLines, 
+  Image as ImageIcon, 
+  Instagram, 
+  Sparkles, 
+  Upload, 
+  Video, 
+  Youtube,
+  History,
+  Settings2,
+  Crown,
+  Check,
+  Zap,
+  Download,
+  Layers,
+  User,
+  ChevronDown,
+  LogOut
+} from "lucide-react";
+import { useAuth } from "../../context/auth-context";
+import { useNavigate } from "react-router";
+import { Button } from "../../components/ui/button";
+import { BrandLogo } from "../../components/brand-logo";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { LoadingModal, type LoadingState } from "../../components/loading-modal";
+import { HistoryDialog, type HistoryItem, saveToHistory } from "../../components/history-dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "../../components/ui/dialog";
+import { Label } from "../../components/ui/label";
+import { Switch } from "../../components/ui/switch";
+import { PremiumModal } from "../../components/premium-modal";
+
+export function ImagesToVideoUploadScreen() {
+  const navigate = useNavigate();
+  const { isLoggedIn, session, logout } = useAuth();
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userName = session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || "User";
+  const [prompt, setPrompt] = useState("");
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [durationMinutes, setDurationMinutes] = useState(1);
+  const [durationSeconds, setDurationSeconds] = useState(0);
+  const [selectedRatio, setSelectedRatio] = useState("16:9");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loadingState, setLoadingState] = useState<LoadingState>(null);
+  const [loadingMessage, setLoadingMessage] = useState("");
+
+  // -- History State --
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // -- Advanced Config State --
+  const [isAdvancedConfigOpen, setIsAdvancedConfigOpen] = useState(false);
+  const [exportQuality, setExportQuality] = useState("1080p");
+  const [fps, setFps] = useState(30);
+  const [watermark, setWatermark] = useState(true);
+
+  // -- Premium State --
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState<"watermark" | "4k" | "60fps" | "general">("general");
+
+  const handlePremiumIntercept = (feature: "watermark" | "4k" | "60fps") => {
+    setPremiumFeature(feature);
+    setIsPremiumModalOpen(true);
+  };
+
+  const handleHistorySelect = (item: HistoryItem) => {
+    console.log("Loading project from history:", item);
+    if (item.tool === 'avatar' && item.config) {
+      if (item.config.prompt) setPrompt(item.config.prompt);
+      if (item.config.ratio) setSelectedRatio(item.config.ratio);
+    }
+    setIsHistoryOpen(false);
+  };
 
   const styleOptions = [
     { name: "Dramatic", icon: Theater },
@@ -95,6 +176,80 @@ export function ImagesToVideoUploadScreen() {
 
   const canGenerate = prompt.trim().length > 0 && mediaFiles.length > 0;
 
+  const handleGenerateVideo = async () => {
+    if (!canGenerate || isGenerating) {
+      return;
+    }
+
+    setIsGenerating(true);
+    setErrorMessage("");
+    setLoadingState("loading");
+    setLoadingMessage("Generating your video...");
+
+    try {
+      const totalSeconds = durationMinutes * 60 + durationSeconds;
+
+      const formData = new FormData();
+      formData.append("prompt", prompt.trim());
+      formData.append("duration", String(totalSeconds));
+      formData.append("frame", selectedRatio);
+
+      mediaFiles.forEach((file) => {
+        formData.append("media", file);
+      });
+
+      if (audioFile) {
+        formData.append("audio", audioFile);
+      }
+
+      const response = await fetch("/api/generate-from-media", {
+        method: "POST",
+        body: formData,
+      });
+
+      const rawBody = await response.text();
+      let data: any = {};
+
+      if (rawBody) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = { error: rawBody };
+        }
+      }
+
+      if (!response.ok || !data.success || !data.video) {
+        const message = data.error || data.detail || `Video generation failed (${response.status}).`;
+        throw new Error(message);
+      }
+
+      setLoadingState("success");
+      setLoadingMessage("Video generated successfully!");
+
+      localStorage.setItem("generatedVideo", data.video);
+      localStorage.removeItem("generatedVideoError");
+      if (data.storage) {
+        localStorage.setItem("generatedVideoStorage", data.storage);
+      } else {
+        localStorage.removeItem("generatedVideoStorage");
+      }
+
+      setTimeout(() => {
+        setLoadingState(null);
+        navigate("/images-to-video/preview");
+      }, 2500);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unexpected generation error.";
+      setLoadingState("error");
+      setLoadingMessage(message);
+      setErrorMessage(message);
+      localStorage.removeItem("generatedVideo");
+      localStorage.setItem("generatedVideoError", message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div 
       className="min-h-screen font-sans selection:bg-blue-500/30 selection:text-white pb-20 text-white"
@@ -120,6 +275,225 @@ export function ImagesToVideoUploadScreen() {
           <div className="inline-flex items-center gap-2 bg-cyan-950/30 backdrop-blur-3xl px-4 py-1.5 rounded-full border border-cyan-500/30 shadow-[0_4px_30px_rgba(6,182,212,0.15)] transition-colors cursor-default mb-6">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
             <span className="text-xs font-semibold text-cyan-100 tracking-[0.2em] uppercase">Pic-to-Video Creation</span>
+      {/* Corner Vignettes */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
+      />
+
+      <div className="container mx-auto px-4 py-12 max-w-5xl relative z-10">
+        <div className="flex justify-between items-center mb-8">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-6"
+          >
+            <div
+              className="flex items-center gap-2 group cursor-pointer"
+              onClick={() => window.location.reload()}
+            >
+              <div className="relative">
+                {/* Theme Background Glow */}
+                <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <BrandLogo size={48} className="relative z-10" />
+              </div>
+              <span className="text-xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">
+                VIREONIX<span className="text-cyan-400">.AI</span>
+              </span>
+            </div>
+
+            <button
+              onClick={() => navigate("/features")}
+              className="flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm font-bold uppercase tracking-widest">Back</span>
+            </button>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3"
+          >
+            {isLoggedIn && (
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-2.5 bg-white/5 hover:bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 transition-all text-white group shadow-xl"
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <User className="w-3 h-3 text-[#0b0d1f]" />
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">{userName}</span>
+                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </motion.button>
+
+                <AnimatePresence>
+                  {isUserMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
+                    >
+                      <div className="p-2">
+                        <button 
+                          onClick={() => {
+                            logout();
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all text-[10px] font-bold uppercase tracking-[0.2em] group"
+                        >
+                          <LogOut className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-[#94a3b8] hover:text-white group shadow-xl"
+            >
+              <History className="w-4 h-4 group-hover:rotate-[-45deg] transition-transform" />
+              <span className="text-xs font-bold uppercase tracking-widest">History</span>
+            </button>
+
+            <Dialog open={isAdvancedConfigOpen} onOpenChange={setIsAdvancedConfigOpen}>
+              <DialogTrigger asChild>
+                <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-[#94a3b8] hover:text-white group shadow-xl">
+                  <Settings2 className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+                  <span className="text-xs font-bold uppercase tracking-widest">Advanced Config</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="bg-[#0b0d1f]/95 backdrop-blur-2xl border-white/10 text-white sm:max-w-[425px] rounded-3xl shadow-2xl">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tighter">
+                    <Settings2 className="w-5 h-5 text-cyan-400" />
+                    Production Settings
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="grid gap-6 py-6 font-sans">
+                  {/* Export Quality */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Download className="w-4 h-4 text-emerald-400" />
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Export Quality</Label>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['720p', '1080p', '4K'].map((res) => {
+                        const isPremium = res === '4K';
+                        return (
+                          <button
+                            key={res}
+                            onClick={() => isPremium ? handlePremiumIntercept("4k") : setExportQuality(res)}
+                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex flex-col items-center gap-1 ${
+                              exportQuality === res 
+                                ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]' 
+                                : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'
+                            }`}
+                          >
+                            <span>{res}</span>
+                            {isPremium && (
+                              <div className="flex items-center gap-1 text-[8px] text-amber-500">
+                                <Crown className="w-2 h-2" />
+                                <span>PREMIUM</span>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Frame Rate */}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                       <Zap className="w-3 h-3" /> Target Frame Rate
+                    </label>
+                    <div className="flex gap-2">
+                      {[24, 30, 60].map((f) => {
+                        const isPremium = f === 60;
+                        return (
+                          <button
+                            key={f}
+                            onClick={() => isPremium ? handlePremiumIntercept("60fps") : setFps(f)}
+                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex flex-col items-center gap-1 ${
+                              fps === f
+                                ? 'bg-indigo-500/10 border-indigo-500 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
+                                : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'
+                            }`}
+                          >
+                            <span>{f} FPS</span>
+                            {isPremium && (
+                              <div className="flex items-center gap-1 text-[8px] text-amber-500">
+                                <Crown className="w-2 h-2" />
+                                <span>PREMIUM</span>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Watermark Toggle */}
+                  <div className="pt-4 border-t border-white/5">
+                    <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-orange-500/10 text-orange-400">
+                           <Layers className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-white">Production Watermark</p>
+                          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Branded: VIREONIX</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 rounded-md text-amber-500 text-[8px] font-black uppercase tracking-widest">
+                           <Crown className="w-3 h-3" />
+                           <span>PREMIUM TO REMOVE</span>
+                        </div>
+                        <button
+                          onClick={() => handlePremiumIntercept("watermark")}
+                          className={`w-12 h-6 rounded-full relative transition-all bg-cyan-600 shadow-[0_0_10px_rgba(34,211,238,0.3)]`}
+                        >
+                          <div className={`absolute top-1 right-1 w-4 h-4 rounded-full bg-white transition-all`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-white/5">
+                  <Button
+                    onClick={() => setIsAdvancedConfigOpen(false)}
+                    className="px-8 bg-white/10 hover:bg-white/20 text-white border-white/10 hover:border-white/20 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all py-6 h-auto"
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </motion.div>
+        </div>
+
+        <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="text-center mb-12"
+        >
+          <div className="inline-flex items-center gap-2 bg-[#1a1b2e]/60 backdrop-blur-3xl px-6 py-2.5 rounded-full border border-cyan-500/20 mb-6 shadow-[0_4px_30px_rgba(0,0,0,0.2)]">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span className="text-sm font-semibold text-cyan-100 tracking-wide uppercase font-sans tracking-[0.2em]">Direct Pic to Video</span>
           </div>
 
           {/* Header */}
@@ -553,6 +927,64 @@ export function ImagesToVideoUploadScreen() {
         onClose={() => setIsLoginOpen(false)} 
         customTitle="Welcome back"
         customMessage="Sign in to your Vireonix account to create your video"
+            <p className="text-xs font-semibold text-[#64748b] mt-3">
+              Choosing 4:3, 3:4, 4:5, or 2.35:1 may crop some uploaded assets.
+            </p>
+          </div>
+          {errorMessage && (
+            <p className="mt-2 mb-4 text-sm text-red-400 text-center font-bold bg-red-500/10 border border-red-500/30 py-3 px-4 rounded-xl backdrop-blur-sm">
+              {errorMessage}
+            </p>
+          )}
+
+          <Button
+          onClick={() => {
+            const config = {
+              prompt,
+              duration: durationMinutes * 60 + durationSeconds,
+              ratio: selectedRatio,
+              mediaFiles: mediaFiles.map(f => f.name),
+              audioFile: audioFile?.name,
+              quality: exportQuality,
+              fps,
+              watermark
+            };
+            saveToHistory({
+              title: prompt.slice(0, 30) + (prompt.length > 30 ? "..." : ""),
+              tool: 'avatar',
+              config
+            });
+            handleGenerateVideo();
+          }}
+          disabled={!canGenerate || isGenerating}
+             className="w-full h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl disabled:opacity-50 disabled:cursor-not-allowed border border-cyan-300/40"
+          >
+            <Video className="w-5 h-5 mr-2" />
+            {isGenerating ? "Generating..." : "Generate video"}
+          </Button>
+        </motion.div>
+      </div>
+
+      <LoadingModal
+        state={loadingState}
+        message={loadingMessage}
+        onDismiss={() => {
+          setLoadingState(null);
+          setErrorMessage("");
+        }}
+      />
+
+      <HistoryDialog 
+        open={isHistoryOpen} 
+        onOpenChange={setIsHistoryOpen}
+        onSelect={handleHistorySelect}
+        currentTool="avatar"
+      />
+
+      <PremiumModal 
+        open={isPremiumModalOpen} 
+        onOpenChange={setIsPremiumModalOpen}
+        feature={premiumFeature}
       />
     </div>
   );

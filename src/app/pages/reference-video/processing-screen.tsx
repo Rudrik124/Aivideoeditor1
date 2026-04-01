@@ -1,17 +1,104 @@
 import { useEffect } from "react";
 import { motion } from "motion/react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Film, Wand2 } from "lucide-react";
+
+type ReferenceVideoConfig = {
+  prompt: string;
+  duration: number;
+  aspectRatio: string;
+  referenceVideo: File | null;
+  mediaFiles?: File[];
+  audioFile?: File | null;
+};
 
 export function ReferenceVideoProcessingScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as ReferenceVideoConfig | undefined;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigate("/reference-video/result");
-    }, 3500);
-    return () => clearTimeout(timer);
-  }, [navigate]);
+    // If user refreshed or came directly here, send them back to setup
+    if (!state || !state.prompt || !state.referenceVideo) {
+      navigate("/reference-video/setup", { replace: true });
+      return;
+    }
+
+    let cancelled = false;
+
+    const generate = async () => {
+      try {
+        const formData = new FormData();
+        formData.append("prompt", state.prompt.trim());
+        formData.append("duration", String(state.duration || 0));
+        formData.append("frame", state.aspectRatio || "16:9");
+
+        // Primary reference video
+        if (state.referenceVideo) {
+          formData.append("media", state.referenceVideo);
+        }
+
+        // Optional extra media assets
+        if (state.mediaFiles && state.mediaFiles.length) {
+          state.mediaFiles.forEach((file) => {
+            formData.append("media", file);
+          });
+        }
+
+        // Optional audio
+        if (state.audioFile) {
+          formData.append("audio", state.audioFile);
+        }
+
+        const response = await fetch("/api/generate-from-media", {
+          method: "POST",
+          body: formData,
+        });
+
+        const rawBody = await response.text();
+        let data: any = {};
+
+        if (rawBody) {
+          try {
+            data = JSON.parse(rawBody);
+          } catch {
+            data = { error: rawBody };
+          }
+        }
+
+        if (!response.ok || !data.success || !data.video) {
+          const message = data.error || data.detail || `Video generation failed (${response.status}).`;
+          throw new Error(message);
+        }
+
+        localStorage.setItem("generatedVideo", data.video);
+        localStorage.removeItem("generatedVideoError");
+        if (data.storage) {
+          localStorage.setItem("generatedVideoStorage", data.storage);
+        } else {
+          localStorage.removeItem("generatedVideoStorage");
+        }
+
+        if (!cancelled) {
+          navigate("/reference-video/result", { replace: true });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unexpected generation error.";
+        localStorage.removeItem("generatedVideo");
+        localStorage.setItem("generatedVideoError", message);
+
+        if (!cancelled) {
+          navigate("/reference-video/result", { replace: true });
+        }
+      }
+    };
+
+    generate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, state]);
 
   return (
     <div

@@ -1,10 +1,27 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Download, RefreshCcw, Video } from "lucide-react";
+import { ArrowLeft, Download, RefreshCcw } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { BrandLogo } from "../../components/brand-logo";
 
 export function ReferenceVideoResultScreen() {
   const navigate = useNavigate();
+
+  const videoUrl = localStorage.getItem("generatedVideo");
+  const storagePath = localStorage.getItem("generatedVideoStorage");
+  const generationError = localStorage.getItem("generatedVideoError");
+
+  const handleDownload = () => {
+    if (!videoUrl) {
+      alert("No video available");
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = videoUrl;
+    link.download = "reference-video.mp4";
+    link.click();
+  };
 
   return (
     <div
@@ -21,15 +38,38 @@ export function ReferenceVideoResultScreen() {
       />
 
       <div className="container mx-auto px-4 py-12 max-w-4xl relative z-10">
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => navigate("/features")}
-          className="inline-flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors mb-8"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm font-medium">Back to selection</span>
-        </motion.button>
+        <div className="flex justify-between items-center mb-8">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-6"
+          >
+            <div
+              className="flex items-center gap-2 group cursor-pointer"
+              onClick={() => window.location.reload()}
+            >
+              <div className="relative">
+                {/* Theme Background Glow */}
+                <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <BrandLogo size={48} className="relative z-10" />
+              </div>
+              <span className="text-xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">
+                VIREONIX<span className="text-cyan-400">.AI</span>
+              </span>
+            </div>
+
+            <div className="h-6 w-[1px] bg-white/10" />
+
+            <button
+              onClick={() => navigate("/features")}
+              className="flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm font-bold uppercase tracking-widest">Back</span>
+            </button>
+          </motion.div>
+        </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -39,16 +79,41 @@ export function ReferenceVideoResultScreen() {
           <h1 className="text-3xl md:text-4xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             Reference Video Generated
           </h1>
-          <p className="text-[#94a3b8] mb-8 font-medium">Your generated video is ready for preview and export.</p>
+          <p className="text-[#94a3b8] mb-4 font-medium">Your generated video is ready for preview and export.</p>
+
+          {storagePath && (
+            <p className="text-sm font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-2 inline-block shadow-md mb-6">
+              Saved to Supabase: {storagePath}
+            </p>
+          )}
 
           {/* Video Container */}
-          <div className="relative aspect-video rounded-xl bg-[#0b0d1f] flex items-center justify-center mb-8 border border-[#3f4a67]/50 shadow-inner overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-teal-500/5 to-cyan-500/10 mix-blend-overlay" />
-            <Video className="w-14 h-14 text-cyan-500/50 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] group-hover:text-cyan-400 transition-colors relative z-10" />
+          <div className="relative bg-[#1a1b2e]/40 rounded-2xl border border-[#3f4a67]/50 shadow-inner overflow-hidden mb-8 p-2">
+            {videoUrl ? (
+              <div className="relative rounded-xl overflow-hidden border border-[#3f4a67]/50 bg-[#0b0d1f]">
+                <video
+                  src={videoUrl}
+                  controls
+                  autoPlay
+                  className="w-full relative z-10"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/5 mix-blend-overlay pointer-events-none z-20" />
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-[#94a3b8] font-medium text-lg">No video found</p>
+                {generationError && (
+                  <p className="text-sm font-semibold text-red-400 mt-4 bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl inline-block shadow-md">{generationError}</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button className="flex-1 h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40">
+            <Button
+              onClick={handleDownload}
+              className="flex-1 h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40"
+            >
               <Download className="w-5 h-5 mr-2" />
               Download
             </Button>

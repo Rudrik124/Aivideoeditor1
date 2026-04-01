@@ -2,12 +2,41 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { ArrowLeft, Sparkles, Video, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  ArrowLeft, 
+  Sparkles, 
+  Video,
+  History,
+  Settings2,
+  Crown,
+  Check,
+  Zap,
+  Download,
+  Layers,
+  ChevronRight,
+  User,
+  ChevronDown,
+  LogOut
+} from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../context/auth-context";
 import { LoginModal } from "./login-modal";
 import { LoadingModal, type LoadingState } from "../components/loading-modal";
+import { BrandLogo } from "../components/brand-logo";
+import { HistoryDialog, type HistoryItem, saveToHistory } from "../components/history-dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "../components/ui/dialog";
+import { Label } from "../components/ui/label";
+import { Switch } from "../components/ui/switch";
+import { PremiumModal } from "../components/premium-modal";
 
 const frameStyleOptions = [
   { label: "16:9", width: 32, height: 18 },
@@ -30,8 +59,10 @@ const premiumPrompts = [
 
 export function AIGenerativeVideoPage() {
   const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, session, logout } = useAuth();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userName = session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || "User";
   const [prompt, setPrompt] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(1);
   const [durationSeconds, setDurationSeconds] = useState(0);
@@ -40,6 +71,34 @@ export function AIGenerativeVideoPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loadingState, setLoadingState] = useState<LoadingState>(null);
   const [loadingMessage, setLoadingMessage] = useState("");
+
+  // -- History State --
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // -- Advanced Config State --
+  const [isAdvancedConfigOpen, setIsAdvancedConfigOpen] = useState(false);
+  const [exportQuality, setExportQuality] = useState("1080p");
+  const [fps, setFps] = useState(30);
+  const [watermark, setWatermark] = useState(true);
+
+  // -- Premium State --
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState<"watermark" | "4k" | "60fps" | "general">("general");
+
+  const handlePremiumIntercept = (feature: "watermark" | "4k" | "60fps") => {
+    setPremiumFeature(feature);
+    setIsPremiumModalOpen(true);
+  };
+
+  const handleHistorySelect = (item: HistoryItem) => {
+    console.log("Loading project from history:", item);
+    if (item.tool === 'forge' && item.config) {
+      if (item.config.prompt) setPrompt(item.config.prompt);
+      if (item.config.frame) setSelectedRatio(item.config.frame);
+      // ... reload duration
+    }
+    setIsHistoryOpen(false);
+  };
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -90,6 +149,9 @@ export function AIGenerativeVideoPage() {
         prompt: prompt.trim(),
         duration: durationMinutes * 60 + durationSeconds,
         frame: selectedRatio,
+        quality: exportQuality,
+        fps,
+        watermark
       };
 
       console.log("📤 Sending POST /api/generate with:", JSON.stringify(requestPayload));
@@ -127,6 +189,19 @@ export function AIGenerativeVideoPage() {
       // Show success state
       setLoadingState("success");
       setLoadingMessage("Video generated successfully!");
+
+      saveToHistory({
+        title: prompt.slice(0, 30) + (prompt.length > 30 ? "..." : ""),
+        tool: 'forge',
+        config: {
+          prompt,
+          ratio: selectedRatio,
+          duration: durationMinutes * 60 + durationSeconds,
+          quality: exportQuality,
+          fps,
+          watermark
+        }
+      });
 
       localStorage.setItem("generatedVideo", data.video);
       localStorage.removeItem("generatedVideoError");
@@ -278,15 +353,187 @@ export function AIGenerativeVideoPage() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-3 group cursor-pointer"
-          onClick={() => navigate("/tools")}
+          onClick={() => window.location.reload()}
         >
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] group-hover:scale-105 transition-all duration-300 border border-white/20 backdrop-blur-md">
-            <Sparkles className="w-6 h-6 text-[#0b0d1f]" />
+          <div className="relative">
+            {/* Theme Background Glow */}
+            <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            
+            <BrandLogo size={48} className="relative z-10" />
           </div>
           <span className="text-2xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] group-hover:text-cyan-400/80 transition-colors">
-            AIVideo
+            VIREONIX<span className="text-cyan-400">.AI</span>
           </span>
         </motion.div>
+
+        <div className="flex items-center gap-3">
+          {isLoggedIn && (
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center gap-2.5 bg-white/5 hover:bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 transition-all text-white group shadow-xl"
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                  <User className="w-3 h-3 text-[#0b0d1f]" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest">{userName}</span>
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+              </motion.button>
+
+              <AnimatePresence>
+                {isUserMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
+                  >
+                    <div className="p-2">
+                      <button 
+                        onClick={() => {
+                          logout();
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all text-[10px] font-bold uppercase tracking-[0.2em] group"
+                      >
+                        <LogOut className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-[#94a3b8] hover:text-white group shadow-xl"
+          >
+            <History className="w-4 h-4 group-hover:rotate-[-45deg] transition-transform" />
+            <span className="text-[11px] font-bold uppercase tracking-widest">History</span>
+          </button>
+
+          <Dialog open={isAdvancedConfigOpen} onOpenChange={setIsAdvancedConfigOpen}>
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-[#94a3b8] hover:text-white group shadow-xl">
+                <Settings2 className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+                <span className="text-[11px] font-bold uppercase tracking-widest">Advanced Config</span>
+              </button>
+            </DialogTrigger>
+            <DialogContent className="bg-[#0b0d1f]/95 backdrop-blur-2xl border-white/10 text-white sm:max-w-[425px] rounded-3xl shadow-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tighter">
+                  <Settings2 className="w-5 h-5 text-cyan-400" />
+                  Production Settings
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="grid gap-6 py-6 font-sans">
+                {/* Export Quality */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Download className="w-4 h-4 text-emerald-400" />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Export Quality</Label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['720p', '1080p', '4K'].map((res) => {
+                      const isPremium = res === '4K';
+                      return (
+                        <button
+                          key={res}
+                          onClick={() => isPremium ? handlePremiumIntercept("4k") : setExportQuality(res)}
+                          className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex flex-col items-center gap-1 ${
+                            exportQuality === res 
+                              ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]' 
+                              : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'
+                          }`}
+                        >
+                          <span>{res}</span>
+                          {isPremium && (
+                            <div className="flex items-center gap-1 text-[8px] text-amber-500">
+                              <Crown className="w-2 h-2" />
+                              <span>PREMIUM</span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Frame Rate */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                     <Zap className="w-3 h-3" /> Target Frame Rate
+                  </label>
+                  <div className="flex gap-2">
+                    {[24, 30, 60].map((f) => {
+                      const isPremium = f === 60;
+                      return (
+                        <button
+                          key={f}
+                          onClick={() => isPremium ? handlePremiumIntercept("60fps") : setFps(f)}
+                          className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex flex-col items-center gap-1 ${
+                            fps === f
+                              ? 'bg-indigo-500/10 border-indigo-500 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
+                              : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'
+                          }`}
+                        >
+                          <span>{f} FPS</span>
+                          {isPremium && (
+                            <div className="flex items-center gap-1 text-[8px] text-amber-500">
+                              <Crown className="w-2 h-2" />
+                              <span>PREMIUM</span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Watermark Toggle */}
+                <div className="pt-4 border-t border-white/5">
+                  <div className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <div className="flex items-center gap-3">
+                      <button className="text-slate-400 hover:text-white transition-colors">
+                        <Settings2 className="w-4 h-4" />
+                      </button>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white">Production Watermark</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Branded: VIREONIX</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 rounded-md text-amber-500 text-[8px] font-black uppercase tracking-widest">
+                         <Crown className="w-3 h-3" />
+                         <span>PREMIUM TO REMOVE</span>
+                      </div>
+                      <button
+                        onClick={() => handlePremiumIntercept("watermark")}
+                        className={`w-12 h-6 rounded-full relative transition-all bg-cyan-600 shadow-[0_0_10px_rgba(34,211,238,0.3)]`}
+                      >
+                        <div className={`absolute top-1 right-1 w-4 h-4 rounded-full bg-white transition-all`} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-white/5">
+                <Button
+                  onClick={() => setIsAdvancedConfigOpen(false)}
+                  className="px-8 bg-white/10 hover:bg-white/20 text-white border-white/10 hover:border-white/20 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all py-6 h-auto"
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="container mx-auto px-4 py-4 md:py-8 max-w-7xl relative z-10 flex flex-col flex-1">
@@ -496,6 +743,19 @@ export function AIGenerativeVideoPage() {
         onClose={() => setIsLoginOpen(false)}
         customTitle="Login Required"
         customMessage="Please login to generate your video"
+      />
+
+      <HistoryDialog 
+        open={isHistoryOpen} 
+        onOpenChange={setIsHistoryOpen}
+        onSelect={handleHistorySelect}
+        currentTool="forge"
+      />
+
+      <PremiumModal 
+        open={isPremiumModalOpen} 
+        onOpenChange={setIsPremiumModalOpen}
+        feature={premiumFeature}
       />
     </div>
   );

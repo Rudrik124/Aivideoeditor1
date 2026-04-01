@@ -1,10 +1,37 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import { Download, Share2, Sparkles, Play, ArrowLeft } from "lucide-react";
+import { Download, Share2, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { BrandLogo } from "../../components/brand-logo";
 
 export function ImagesToVideoPreviewScreen() {
   const navigate = useNavigate();
+  const videoUrl = localStorage.getItem("generatedVideo");
+  const storagePath = localStorage.getItem("generatedVideoStorage");
+  const generationError = localStorage.getItem("generatedVideoError");
+
+  const handleDownload = () => {
+    if (!videoUrl) {
+      alert("No video available");
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = videoUrl;
+    link.download = "generated-video.mp4";
+    link.click();
+  };
+
+  const handleShare = () => {
+    if (!videoUrl) {
+      alert("No video available");
+      return;
+    }
+
+    navigator.clipboard.writeText(videoUrl);
+    alert("Video link copied!");
+  };
 
   return (
     <div 
@@ -20,7 +47,41 @@ export function ImagesToVideoPreviewScreen() {
         style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
       />
 
-      <div className="container mx-auto px-4 py-12 max-w-5xl relative z-10">
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-5xl relative z-10">
+        
+        {/* Navigation Header */}
+        <div className="flex justify-between items-center mb-8">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-6"
+          >
+            <div
+              className="flex items-center gap-2 group cursor-pointer"
+              onClick={() => window.location.reload()}
+            >
+              <div className="relative">
+                {/* Theme Background Glow */}
+                <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <BrandLogo size={48} className="relative z-10" />
+              </div>
+              <span className="text-xl font-black tracking-tight text-white drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">
+                VIREONIX<span className="text-cyan-400">.AI</span>
+              </span>
+            </div>
+
+            <div className="h-6 w-[1px] bg-white/10" />
+
+            <button
+              onClick={() => navigate("/features")}
+              className="flex items-center gap-2 text-[#94a3b8] hover:text-cyan-400 transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm font-bold uppercase tracking-widest">Back</span>
+            </button>
+          </motion.div>
+        </div>
         {/* Header */}
         <motion.div
            initial={{ opacity: 0, y: 20 }}
@@ -35,6 +96,11 @@ export function ImagesToVideoPreviewScreen() {
           <h1 className="text-4xl md:text-5xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             Preview Your Video
           </h1>
+          {storagePath && (
+            <p className="text-sm font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-2 inline-block shadow-md">
+              Saved to Supabase: {storagePath}
+            </p>
+          )}
         </motion.div>
 
         {/* Video Player */}
@@ -42,38 +108,43 @@ export function ImagesToVideoPreviewScreen() {
            initial={{ opacity: 0, y: 30 }}
            animate={{ opacity: 1, y: 0 }}
            transition={{ delay: 0.2 }}
-           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 overflow-hidden mb-8"
+           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-6 md:p-8 mb-8 overflow-hidden relative"
         >
-          <div className="relative aspect-video bg-[#0b0d1f] flex items-center justify-center group border-b border-[#3f4a67]/50">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-teal-500/5 to-cyan-500/10 mix-blend-overlay" />
-            
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative z-10 w-20 h-20 rounded-full bg-cyan-500/20 backdrop-blur-md flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] border border-cyan-400/30 group-hover:bg-cyan-400/30 group-hover:shadow-[0_0_40px_rgba(34,211,238,0.5)] transition-all"
-            >
-              <Play className="w-8 h-8 text-cyan-300 ml-1 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]" fill="currentColor" />
-            </motion.button>
-          </div>
-
-          <div className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button
-                onClick={() => alert("Download started!")}
-                 className="flex-1 h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40"
-              >
-                <Download className="w-5 h-5 mr-2" />
-                Download Video
-              </Button>
-              <Button
-                onClick={() => alert("Share options coming soon!")}
-                variant="outline"
-                className="h-14 px-8 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#0b0d1f]/40"
-              >
-                <Share2 className="w-5 h-5 mr-2" />
-                Share
-              </Button>
+          {videoUrl ? (
+            <div className="relative rounded-xl overflow-hidden border border-[#3f4a67]/50 shadow-inner bg-[#0b0d1f] mb-6">
+              <video
+                src={videoUrl}
+                controls
+                autoPlay
+                className="w-full relative z-10"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/5 mix-blend-overlay pointer-events-none z-20" />
             </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-[#94a3b8] font-medium text-lg">No video found</p>
+              {generationError && (
+                <p className="text-sm font-semibold text-red-400 mt-4 bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl inline-block shadow-md">{generationError}</p>
+              )}
+            </div>
+          )}
+
+          <div className="mt-2 flex flex-col sm:flex-row gap-4">
+            <Button
+              onClick={handleDownload}
+               className="flex-1 h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40"
+            >
+              <Download className="w-5 h-5 mr-2" />
+              Download Video
+            </Button>
+            <Button
+              onClick={handleShare}
+              variant="outline"
+              className="h-14 px-8 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#0b0d1f]/40"
+            >
+              <Share2 className="w-5 h-5 mr-2" />
+              Share
+            </Button>
           </div>
         </motion.div>
 
