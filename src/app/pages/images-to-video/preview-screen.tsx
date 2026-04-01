@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { Download, Share2, Sparkles, Play } from "lucide-react";
+import { Download, Share2, Sparkles, Play, ArrowLeft } from "lucide-react";
 import { Button } from "../../components/ui/button";
 
 export function ImagesToVideoPreviewScreen() {
@@ -77,13 +77,21 @@ export function ImagesToVideoPreviewScreen() {
           </div>
         </motion.div>
 
-        {/* Create Another */}
+        {/* Bottom Actions */}
         <motion.div
            initial={{ opacity: 0 }}
            animate={{ opacity: 1 }}
            transition={{ delay: 0.4 }}
-           className="text-center"
+           className="flex items-center justify-center gap-4 flex-wrap"
         >
+          <Button
+            onClick={() => navigate("/images-to-video/upload")}
+            variant="outline"
+            className="h-14 px-8 border border-[#3f4a67] hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:text-cyan-300 text-[#cbd5e1] rounded-xl font-semibold transition-all bg-[#1a1b2e]/60 backdrop-blur-xl shadow-lg flex items-center gap-2"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back
+          </Button>
           <Button
             onClick={() => navigate("/features")}
             variant="outline"

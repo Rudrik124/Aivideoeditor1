@@ -202,7 +202,7 @@ export function FeaturesSelectionPage() {
       {/* Success Toast */}
       {showLoginSuccess && (
         <SuccessToast
-          message="✅ Login successful! Welcome back!"
+          message="Login successful! Welcome back!"
           onDismiss={() => setShowLoginSuccess(false)}
         />
       )}
