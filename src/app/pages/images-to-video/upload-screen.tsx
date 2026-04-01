@@ -211,7 +211,7 @@ export function ImagesToVideoUploadScreen() {
 
       setTimeout(() => {
         setLoadingState(null);
-        navigate("/result");
+        navigate("/images-to-video/preview");
       }, 2500);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unexpected generation error.";
