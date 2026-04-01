@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { motion } from "framer-motion";
+import { ArrowLeft, Sparkles, Video, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -36,7 +38,15 @@ import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { PremiumModal } from "../components/premium-modal";
 
-const ratioOptions = ["16:9", "9:16", "4:3", "3:4", "1:1", "4:5", "2.35:1"];
+const frameStyleOptions = [
+  { label: "16:9", width: 32, height: 18 },
+  { label: "9:16", width: 18, height: 32 },
+  { label: "4:3", width: 28, height: 21 },
+  { label: "3:4", width: 21, height: 28 },
+  { label: "1:1", width: 24, height: 24 },
+  { label: "4:5", width: 22, height: 28 },
+  { label: "2.35:1", width: 36, height: 15 },
+];
 const particles = Array.from({ length: 40 });
 
 const premiumPrompts = [
@@ -592,7 +602,7 @@ export function AIGenerativeVideoPage() {
                 onClick={handleSurpriseMe}
                 className="text-[10px] uppercase tracking-widest font-bold text-cyan-400 bg-cyan-900/30 hover:bg-cyan-800/50 px-3 py-1.5 rounded-full border border-cyan-500/30 hover:border-cyan-400 transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(34,211,238,0.1)] hover:shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:scale-105 active:scale-95"
               >
-                Surprise me 🎲
+                Surprise me
               </button>
             </div>
             <Textarea
@@ -613,19 +623,32 @@ export function AIGenerativeVideoPage() {
           >
             <label className="text-xs md:text-sm font-bold mb-4 text-cyan-50/90 uppercase tracking-[0.15em] flex items-center gap-3 border-b border-[#3f4a67]/50 pb-4">
               <Video className="w-4 h-4 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-              Frame selection
+              Aspect Ratio
             </label>
-            <div className="grid grid-cols-2 gap-3 flex-1 content-start mt-2 relative">
-              {ratioOptions.map((ratio) => (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-1 content-start mt-2">
+              {frameStyleOptions.map((opt) => (
                 <button
-                  key={ratio}
-                  onClick={() => setSelectedRatio(ratio)}
-                  className={`relative rounded-2xl border p-5 transition-all duration-300 flex flex-col items-center justify-center ${selectedRatio === ratio
+                  key={opt.label}
+                  onClick={() => setSelectedRatio(opt.label)}
+                  className={`flex flex-col items-center justify-center rounded-2xl border p-4 transition-all duration-300 group/frame ${
+                    selectedRatio === opt.label
                       ? "border-cyan-400 bg-cyan-500/10 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
                       : "border-[#3f4a67]/80 bg-[#0b0d1f]/40 hover:border-cyan-500/60 hover:bg-[#1a1b2e]/80 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(34,211,238,0.15)]"
-                    }`}
+                  }`}
                 >
-                  <div className={`relative z-10 text-xl font-black tracking-wider transition-all duration-300 ${selectedRatio === ratio ? "text-cyan-100 drop-shadow-[0_0_5px_rgba(255,255,255,0.4)]" : "text-slate-400"}`}>{ratio}</div>
+                  <div className="h-10 flex items-center justify-center mb-2">
+                    <div 
+                      style={{ width: opt.width, height: opt.height }}
+                      className={`border-2 rounded-[2px] transition-all duration-300 ${
+                        selectedRatio === opt.label ? "border-cyan-400" : "border-slate-500/50 group-hover/frame:border-slate-400"
+                      }`}
+                    />
+                  </div>
+                  <div className={`text-[12px] font-black tracking-wider transition-all duration-300 ${
+                    selectedRatio === opt.label ? "text-cyan-100 drop-shadow-[0_0_5px_rgba(255,255,255,0.4)]" : "text-slate-500 group-hover/frame:text-slate-300"
+                  }`}>
+                    {opt.label}
+                  </div>
                 </button>
               ))}
             </div>
@@ -638,39 +661,35 @@ export function AIGenerativeVideoPage() {
             }}
             className="bg-[#1a1b2e]/50 backdrop-blur-3xl border border-[#3f4a67]/50 rounded-[2rem] p-6 lg:p-8 shadow-[0_8px_30px_rgba(11,13,31,0.5)] flex flex-col h-full hover:shadow-[0_8px_30px_rgba(34,211,238,0.15)] transition-all min-h-[300px]"
           >
-            <label className="text-xs md:text-sm font-bold mb-4 text-cyan-50/90 uppercase tracking-[0.15em] flex items-center gap-3 border-b border-[#3f4a67]/50 pb-4">
-              <div className="w-4 h-4 rounded-full border-2 border-cyan-400 flex items-center justify-center drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">
-                <motion.div
-                  animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="w-1.5 h-1.5 bg-cyan-400 rounded-full"
-                />
-              </div>
-              Duration selection
+            <label className="text-xs md:text-sm font-bold mb-4 text-cyan-50/90 uppercase tracking-[0.15em] border-b border-[#3f4a67]/50 pb-4">
+              Runtime Duration
             </label>
-            <div className="grid grid-cols-2 gap-4 mb-6 mt-2">
-              <div className="group/input">
-                <label className="block text-[10px] uppercase tracking-[0.2em] text-[#94a3b8] mb-3 font-bold group-focus-within/input:text-cyan-400 transition-colors">Minutes (Max 3)</label>
-                <Input
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <div className={`relative bg-[#0b0d1f]/60 border rounded-2xl transition-all duration-300 ${
+                durationMinutes > 0 ? "border-cyan-400 bg-cyan-900/10 shadow-[0_0_15px_rgba(6,182,212,0.1)]" : "border-[#3f4a67]/80"
+              }`}>
+                <label className="absolute top-2 left-4 text-[7px] uppercase tracking-widest font-black text-slate-500">Minutes</label>
+                <input 
                   type="number"
-                  min={0}
-                  max={3}
-                  step={1}
+                  min="0"
+                  max="3"
                   value={durationMinutes}
-                  onChange={(event) => handleMinutesInput(event.target.value)}
-                  className="h-16 rounded-2xl border border-[#3f4a67]/80 bg-[#0b0d1f]/60 text-white font-black text-2xl focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 focus:shadow-[0_0_30px_rgba(34,211,238,0.2)] transition-all text-center shadow-inner"
+                  onChange={e => handleMinutesInput(e.target.value)}
+                  className="w-full h-16 pt-5 bg-transparent text-xl font-black text-white outline-none text-center appearance-none"
                 />
               </div>
-              <div className="group/input">
-                <label className="block text-[10px] uppercase tracking-[0.2em] text-[#94a3b8] mb-3 font-bold group-focus-within/input:text-cyan-400 transition-colors">Seconds</label>
-                <Input
+
+              <div className={`relative bg-[#0b0d1f]/60 border rounded-2xl transition-all duration-300 ${
+                durationSeconds > 0 ? "border-cyan-400 bg-cyan-900/10 shadow-[0_0_15px_rgba(6,182,212,0.1)]" : "border-[#3f4a67]/80"
+              }`}>
+                <label className="absolute top-2 left-4 text-[7px] uppercase tracking-widest font-black text-slate-500">Seconds</label>
+                <input 
                   type="number"
-                  min={0}
-                  max={59}
-                  step={1}
+                  min="0"
+                  max="59"
                   value={durationSeconds}
-                  onChange={(event) => handleSecondsInput(event.target.value)}
-                  className="h-16 rounded-2xl border border-[#3f4a67]/80 bg-[#0b0d1f]/60 text-white font-black text-2xl focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 focus:shadow-[0_0_30px_rgba(34,211,238,0.2)] transition-all text-center shadow-inner"
+                  onChange={e => handleSecondsInput(e.target.value)}
+                  className="w-full h-16 pt-5 bg-transparent text-xl font-black text-white outline-none text-center appearance-none"
                 />
               </div>
             </div>

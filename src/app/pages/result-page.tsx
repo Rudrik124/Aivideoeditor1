@@ -95,7 +95,7 @@ export function ResultPage() {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
-            Your Video is Ready 🎬
+            Your Video is Ready
           </h1>
 
           {storagePath && (

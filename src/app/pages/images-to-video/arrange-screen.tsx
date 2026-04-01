@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { GripVertical, Clock, ArrowLeft } from "lucide-react";
+import { GripVertical, Clock, ArrowLeft, Lightbulb } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Button } from "../../components/ui/button";
 import { Slider } from "../../components/ui/slider";
@@ -28,7 +28,7 @@ export function ImagesToVideoArrangeScreen() {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen relative overflow-hidden font-sans selection:bg-cyan-500/30 selection:text-white pb-20"
       style={{
         background: 'linear-gradient(135deg, #0b0d1f 0%, #1a1b2e 30%, #2d3142 60%, #3f4a67 85%, #1a1b2e 100%)',
@@ -36,7 +36,7 @@ export function ImagesToVideoArrangeScreen() {
       }}
     >
       {/* Corner Vignettes */}
-      <div 
+      <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
       />
@@ -55,9 +55,9 @@ export function ImagesToVideoArrangeScreen() {
 
         {/* Header */}
         <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           className="text-center mb-12"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
         >
           <h1 className="text-4xl md:text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             Arrange Your Images
@@ -67,10 +67,10 @@ export function ImagesToVideoArrangeScreen() {
 
         {/* Arrangement Area */}
         <motion.div
-           initial={{ opacity: 0, y: 30 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ delay: 0.2 }}
-           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-8 mb-8"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-8 mb-8"
         >
           <div className="space-y-4">
             {images.map((image, index) => (
@@ -80,11 +80,10 @@ export function ImagesToVideoArrangeScreen() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
                 onClick={() => setSelectedImage(image.id)}
-                className={`flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer ${
-                  selectedImage === image.id
-                    ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
-                    : "border-[#3f4a67]/50 hover:border-cyan-500/30 bg-[#2d3142]/40"
-                }`}
+                className={`flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer ${selectedImage === image.id
+                  ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+                  : "border-[#3f4a67]/50 hover:border-cyan-500/30 bg-[#2d3142]/40"
+                  }`}
               >
                 {/* Drag Handle */}
                 <div className="cursor-grab active:cursor-grabbing text-[#64748b] hover:text-cyan-400">
@@ -141,13 +140,13 @@ export function ImagesToVideoArrangeScreen() {
 
         {/* Continue Button */}
         <motion.div
-           initial={{ opacity: 0 }}
-           animate={{ opacity: 1 }}
-           transition={{ delay: 0.4 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
         >
           <Button
             onClick={handleContinue}
-             className="w-full h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40"
+            className="w-full h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl border border-cyan-300/40"
           >
             Continue to Style Selection
           </Button>
@@ -155,13 +154,13 @@ export function ImagesToVideoArrangeScreen() {
 
         {/* Tips */}
         <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ delay: 0.5 }}
-           className="mt-8 p-4 bg-[#1a1b2e]/40 backdrop-blur-md rounded-xl border border-[#3f4a67]/50 text-center shadow-md"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8 p-4 bg-[#1a1b2e]/40 backdrop-blur-md rounded-xl border border-[#3f4a67]/50 text-center shadow-md"
         >
-          <p className="text-sm text-[#94a3b8] font-medium">
-            💡 <span className="font-bold text-cyan-400">Tip:</span> Recommended duration is 2-5 seconds per image
+          <p className="text-sm text-[#94a3b8] font-medium flex items-center justify-center gap-1.5">
+            <Lightbulb className="w-4 h-4 text-cyan-400" /> <span className="font-bold text-cyan-400">Tip:</span> Recommended duration is 2-5 seconds per image
           </p>
         </motion.div>
       </div>

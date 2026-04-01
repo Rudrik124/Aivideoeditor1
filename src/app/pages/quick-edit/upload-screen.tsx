@@ -115,6 +115,11 @@ export function QuickEditUploadScreen() {
 
     if (type === 'direct') {
       // Broaden support to include video containers and even potential image containers with embedded audio
+      const isGenerallySupported = file.type.startsWith("audio/") || 
+                                   file.type.startsWith("video/") ||
+                                   file.type.startsWith("image/") ||
+                                   /\.(mp4|mov|m4v|m4a|aac|wav|mp3|jpeg|jpg)$/i.test(file.name);
+      
       const isGenerallySupported = file.type.startsWith("audio/") ||
         file.type.startsWith("video/") ||
         file.type.startsWith("image/") ||
@@ -489,6 +494,52 @@ export function QuickEditUploadScreen() {
                     exit={{ opacity: 0, y: 10 }}
                     className="absolute inset-0 bg-[#0b0d1f] z-20 flex items-center justify-around px-8"
                   >
+                     <button 
+                       onClick={() => {
+                         const input = document.createElement('input');
+                         input.type = 'file';
+                         input.accept = 'video/*,image/*,.mp4,.mov,.jpeg,.jpg';
+                         input.onchange = (e) => {
+                           const file = (e.target as HTMLInputElement).files?.[0];
+                           if (file) handleAudioFile(file, 'extracted');
+                         };
+                         input.click();
+                       }}
+                       className="flex flex-col items-center gap-2 group p-4 rounded-xl hover:bg-white/5 transition-all"
+                     >
+                        <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-500/30 group-hover:scale-110 transition-transform">
+                           <Scissors className="w-5 h-5 text-purple-400" />
+                        </div>
+                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Extract from Video</span>
+                     </button>
+
+                     <div className="h-8 w-[1px] bg-white/10" />
+
+                     <button 
+                       onClick={() => {
+                         const input = document.createElement('input');
+                         input.type = 'file';
+                         input.accept = 'audio/*,video/*,image/*,.m4a,.aac,.mp4,.mov,.jpeg,.jpg';
+                         input.onchange = (e) => {
+                           const file = (e.target as HTMLInputElement).files?.[0];
+                           if (file) handleAudioFile(file, 'direct');
+                         };
+                         input.click();
+                       }}
+                       className="flex flex-col items-center gap-2 group p-4 rounded-xl hover:bg-white/5 transition-all"
+                     >
+                        <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30 group-hover:scale-110 transition-transform">
+                           <FileAudio className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Upload Audio File</span>
+                     </button>
+
+                     <button 
+                       onClick={() => setShowAudioChoice(false)}
+                       className="absolute top-2 right-2 p-1 text-slate-600 hover:text-white transition-colors"
+                     >
+                        <X className="w-4 h-4" />
+                     </button>
                     <button
                       onClick={() => {
                         const input = document.createElement('input');

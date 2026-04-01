@@ -1,19 +1,29 @@
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router";
+import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate, useLocation } from "react-router";
 import { 
   Zap, 
   Activity, 
   Loader2, 
   CheckCircle2,
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
+  AlertCircle,
+  RefreshCcw,
+  X
 } from "lucide-react";
+import { Button } from "../../components/ui/button";
 
 export function QuickEditProcessingScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editConfig = location.state as any;
+  
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [isCanceled, setIsCanceled] = useState(false);
+  const processingStarted = useRef(false);
 
   const steps = [
     "Analyzing video sequence",
@@ -24,30 +34,127 @@ export function QuickEditProcessingScreen() {
   ];
 
   useEffect(() => {
+    // If we land here without state, go back
+    if (!editConfig) {
+      navigate("/quick-edit/upload");
+      return;
+    }
+
+    if (processingStarted.current || isCanceled) return;
+    processingStarted.current = true;
+
+    // Fake progress for visual smoothness
     const timer = setInterval(() => {
       setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(timer);
-          return 100;
-        }
+        if (prev >= 98) return 98;
         return prev + 1;
       });
-    }, 40);
+    }, 120);
 
     const stepTimer = setInterval(() => {
       setCurrentStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
-    }, 800);
+    }, 2500);
 
-    const fullTimer = setTimeout(() => {
-      navigate("/quick-edit/result");
-    }, 4500);
+    const runProcessing = async () => {
+      try {
+        // Construct a logical prompt for the backend AI
+        let aiPrompt = `[QuickAI Mode] Style: ${editConfig.selectedStyle}. `;
+        if (editConfig.prompt) aiPrompt += `User Instructions: ${editConfig.prompt}. `;
+        
+        // Add specific modifiers based on toggles
+        if (editConfig.aiOptions.subtitles) aiPrompt += "Include dynamic subtitles/captions. ";
+        if (editConfig.aiOptions.autoCuts) aiPrompt += "Apply smart cuts to remove long pauses. ";
+        if (editConfig.aiOptions.faceTracking) aiPrompt += "Focus on facial expressions and tracking. ";
+        
+        const response = await fetch("http://localhost:5000/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: aiPrompt,
+            duration: 10,
+            frame: editConfig.aspectRatio
+          })
+        });
+
+        const data = await response.json();
+        
+        if (data.success && !isCanceled) {
+          setProgress(100);
+          setCurrentStep(steps.length - 1);
+          
+          // Small delay for the "100%" to be seen
+          setTimeout(() => {
+            navigate("/quick-edit/result", { 
+              state: { 
+                videoUrl: data.video, 
+                config: editConfig,
+                metrics: {
+                  editTime: "4.2s",
+                  sceneCuts: editConfig.aiOptions.autoCuts ? "12 Smart Cuts" : "0 Cuts",
+                  res: editConfig.exportQuality || "1080p"
+                }
+              } 
+            });
+          }, 1200);
+        } else if (!isCanceled) {
+          setError(data.error || "The AI encountered an error while processing your request.");
+        }
+      } catch (err: any) {
+        if (!isCanceled) {
+          setError("Connection lost. Please ensure the local Studio Engine is running.");
+        }
+      }
+    };
+
+    runProcessing();
 
     return () => {
       clearInterval(timer);
       clearInterval(stepTimer);
-      clearTimeout(fullTimer);
     };
-  }, [navigate]);
+  }, [editConfig, navigate, isCanceled]);
+
+  const handleCancel = () => {
+    setIsCanceled(true);
+    navigate("/quick-edit/style", { state: editConfig });
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    processingStarted.current = false;
+    setProgress(0);
+    setCurrentStep(0);
+  };
+
+  if (error) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-[#0b0d1f] text-slate-200 p-8">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-red-500/5 border border-red-500/20 rounded-3xl p-10 text-center space-y-8"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto text-red-500">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-xl font-black uppercase tracking-widest text-red-100">Workflow Interrupted</h2>
+            <p className="text-xs text-red-200/60 font-medium leading-relaxed uppercase tracking-tighter">
+              {error}
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+             <Button onClick={handleRetry} className="bg-red-500 hover:bg-red-600 text-white font-black uppercase tracking-widest rounded-xl h-12">
+                <RefreshCcw className="w-4 h-4 mr-2" /> Try Again
+             </Button>
+             <Button onClick={handleCancel} variant="ghost" className="text-slate-500 hover:text-white font-bold uppercase text-[10px] tracking-widest">
+                Return to Studio
+             </Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -65,8 +172,11 @@ export function QuickEditProcessingScreen() {
       {/* Header */}
       <header className="h-16 flex-none border-b border-white/10 flex items-center justify-between px-6 bg-black/20 backdrop-blur-3xl z-20">
         <div className="flex items-center gap-4">
-          <button className="p-2 text-slate-600 cursor-not-allowed">
-            <ArrowLeft className="w-5 h-5" />
+          <button 
+            onClick={handleCancel}
+            className="p-2 text-slate-600 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
           </button>
           <div className="h-8 w-[1px] bg-white/10 mx-2" />
           <div className="flex flex-col">
@@ -101,20 +211,24 @@ export function QuickEditProcessingScreen() {
                 </div>
 
                 <div className="space-y-4">
-                  <h2 className="text-2xl font-black text-white uppercase tracking-widest">Initializing Quick-Edit</h2>
-                  <p className="text-sm text-[#94a3b8] font-medium max-w-md italic">
-                    AI is currently analyzing your footage for silences, face-tracks, and optimal subtitle placement.
+                  <h2 className="text-2xl font-black text-white uppercase tracking-widest">
+                    {progress === 100 ? "Optimization Complete" : "Initializing Quick-Edit"}
+                  </h2>
+                  <p className="text-sm text-[#94a3b8] font-medium max-w-md italic tracking-tight">
+                    {progress === 100 
+                      ? "Assets have been synthesized and are ready for delivery."
+                      : "AI is currently analyzing your footage for silences, face-tracks, and optimal subtitle placement."}
                   </p>
                 </div>
 
                 <div className="w-full max-w-md space-y-2">
                    <div className="flex justify-between text-[10px] font-black uppercase text-slate-500">
-                      <span>AI Progress</span>
+                      <span>{progress === 100 ? "Pipeline Finalized" : "AI Progress"}</span>
                       <span className="text-cyan-400">{progress}%</span>
                    </div>
                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                       <motion.div 
-                        className="h-full bg-cyan-500"
+                        className="h-full bg-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.5)]"
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
                       />
@@ -139,7 +253,7 @@ export function QuickEditProcessingScreen() {
                     }`}
                   >
                     <div className="w-4 h-4 rounded-full flex items-center justify-center flex-none">
-                      {idx < currentStep ? (
+                      {idx < currentStep || progress === 100 ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       ) : idx === currentStep ? (
                         <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
@@ -147,7 +261,7 @@ export function QuickEditProcessingScreen() {
                         <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
                       )}
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest">{step}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest transition-colors">{step}</span>
                   </motion.div>
                 ))}
              </div>
@@ -177,7 +291,7 @@ export function QuickEditProcessingScreen() {
                    </div>
                 </div>
                 <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                   <span className="text-[8px] font-mono text-cyan-500/40">ENV_MODE: QUICK_ACCEL</span>
+                   <span className="text-[8px] font-mono text-cyan-500/40 uppercase">ENV_MODE: Studio_Accel</span>
                    <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">System Stable</span>
@@ -193,7 +307,7 @@ export function QuickEditProcessingScreen() {
       <footer className="h-12 border-t border-white/10 bg-black/40 backdrop-blur-md flex items-center justify-center px-8 z-20">
          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
             <Sparkles className="w-3 h-3 text-cyan-400" />
-            <span>AI is working its magic...</span>
+            <span>{progress === 100 ? "Ready for delivery" : "AI is working its magic..."}</span>
          </div>
       </footer>
 

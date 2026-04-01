@@ -445,7 +445,7 @@ export function HomePage() {
 		<AnimatePresence>
 			{showLoginSuccess && (
 				<SuccessToast
-					message="✅ Login successful! Welcome back!"
+					message="Login successful! Welcome back!"
 					onDismiss={() => setShowLoginSuccess(false)}
 				/>
 			)}
