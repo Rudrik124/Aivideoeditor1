@@ -239,8 +239,8 @@ export function ImagesToVideoUploadScreen() {
         style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
       />
 
-      <div className="container mx-auto px-4 py-12 max-w-5xl relative z-10">
-        <div className="flex justify-between items-center mb-8">
+      <div className="container mx-auto px-4 py-4 max-w-5xl relative z-10">
+        <div className="flex justify-between items-center mb-4">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -447,11 +447,11 @@ export function ImagesToVideoUploadScreen() {
         <motion.div
            initial={{ opacity: 0, y: 20 }}
            animate={{ opacity: 1, y: 0 }}
-           className="text-center mb-12"
+           className="text-center mb-6"
         >
-          <div className="inline-flex items-center gap-2 bg-[#1a1b2e]/60 backdrop-blur-3xl px-6 py-2.5 rounded-full border border-cyan-500/20 mb-6 shadow-[0_4px_30px_rgba(0,0,0,0.2)]">
+          <div className="inline-flex items-center gap-2 bg-[#1a1b2e]/60 backdrop-blur-3xl px-6 py-2 rounded-full border border-cyan-500/20 mb-4 shadow-[0_4px_30px_rgba(0,0,0,0.2)]">
             <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span className="text-sm font-semibold text-cyan-100 tracking-wide uppercase font-sans tracking-[0.2em]">Direct Pic to Video</span>
+            <span className="text-sm font-semibold text-cyan-100 tracking-wide uppercase font-sans tracking-[0.2em]">AI Motion Studio</span>
           </div>
 
           {/* Header */}
@@ -468,29 +468,31 @@ export function ImagesToVideoUploadScreen() {
           </motion.div>
           </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-8">
-          {/* Left Column: Upload Media */}
-          <motion.div
-             initial={{ opacity: 0, x: -20 }}
-             animate={{ opacity: 1, x: 0 }}
-             transition={{ delay: 0.1 }}
-             className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-[1.5rem] shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-7 flex flex-col transition-all hover:shadow-[0_8px_30px_rgba(34,211,238,0.1)] h-full"
-          >
-            <div className="text-xl font-semibold mb-4 text-slate-100 flex items-center gap-3">
-              <EmojiIcon icon={Upload} size="sm" /> 
-              <span>Upload Your Media</span>
-            </div>
-            
-            <div className="flex flex-col gap-4 flex-1">
-              {/* Visual Media Upload */}
-              <div className="relative flex flex-col items-center justify-center border-2 border-dashed border-[#3f4a67]/80 rounded-2xl p-5 text-center cursor-pointer transition-all bg-[#2d3142]/40 hover:border-cyan-500/60 hover:bg-cyan-900/10 group flex-1">
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleMediaChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch mb-4">
+          {/* Left Column Container */}
+          <div className="flex flex-col gap-4 h-full">
+            {/* Left Column: Upload Media */}
+            <motion.div
+               initial={{ opacity: 0, x: -20 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ delay: 0.1 }}
+               className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-[1.5rem] shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-4 flex flex-col transition-all hover:shadow-[0_8px_30px_rgba(34,211,238,0.1)]"
+            >
+              <div className="text-lg font-semibold mb-4 text-slate-100 flex items-center gap-3">
+                <EmojiIcon icon={Upload} size="sm" /> 
+                <span>Upload Your Media</span>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                {/* Visual Media Upload */}
+                <div className="relative flex flex-col items-center justify-center border-2 border-dashed border-[#3f4a67]/80 rounded-2xl p-3 min-h-[110px] text-center cursor-pointer transition-all bg-[#2d3142]/40 hover:border-cyan-500/60 hover:bg-cyan-900/10 group">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleMediaChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
                 <EmojiIcon icon={ImageIcon} size="md" className="mb-4 group-hover:scale-110 transition-transform duration-300" />
                 <p className="text-lg font-medium mb-1">
                   {mediaFiles.length > 0 ? (
@@ -511,7 +513,7 @@ export function ImagesToVideoUploadScreen() {
               </div>
 
               {/* Audio Upload */}
-              <div className="relative flex flex-col items-center justify-center border-2 border-dashed border-[#3f4a67]/60 rounded-2xl p-5 text-center cursor-pointer transition-all bg-[#2d3142]/40 hover:border-cyan-500/60 hover:bg-cyan-900/10 group flex-1">
+              <div className="relative flex flex-col items-center justify-center border-2 border-dashed border-[#3f4a67]/60 rounded-2xl p-3 min-h-[90px] text-center cursor-pointer transition-all bg-[#2d3142]/40 hover:border-cyan-500/60 hover:bg-cyan-900/10 group">
                 <input
                   type="file"
                   accept="audio/*"
@@ -532,58 +534,77 @@ export function ImagesToVideoUploadScreen() {
             </div>
           </motion.div>
 
+            {/* Step 3: Choose Style */}
+            <motion.div
+               initial={{ opacity: 0, x: -20 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ delay: 0.3 }}
+               className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-[1.5rem] shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-4 transition-all hover:shadow-[0_8px_30px_rgba(34,211,238,0.1)] flex-1"
+            >
+              <div className="text-lg font-semibold mb-5 text-slate-100 flex items-center gap-3">
+                <EmojiIcon icon={Palette} size="sm" /> 
+                <span>Choose Style</span>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-3">
+                {styleOptions.map((style) => (
+                  <div 
+                    key={style.name}
+                    onClick={() => setSelectedStyle(style.name)}
+                    className={`flex flex-col items-center justify-center bg-[#1a1b2e]/80 border rounded-[1rem] p-3 text-center cursor-pointer transition-all ${
+                      selectedStyle === style.name 
+                        ? "border-cyan-400 bg-cyan-900/30 shadow-[0_0_15px_rgba(6,182,212,0.3)] scale-[1.02]" 
+                        : "border-[#3f4a67]/40 hover:border-cyan-500/40 hover:scale-[1.02]"
+                    }`}
+                  >
+                    <EmojiIcon 
+                      icon={style.icon} 
+                      size="sm" 
+                      className={selectedStyle === style.name ? "bg-cyan-500/20 border-cyan-400 w-8 h-8" : "border-slate-600/30 bg-slate-800/40 w-8 h-8"} 
+                    />
+                    <div className={`mt-2 font-black text-[10px] transition-colors uppercase tracking-widest ${selectedStyle === style.name ? "text-cyan-400" : "text-slate-400"}`}>
+                      {style.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+
           {/* Right Column: Configure Settings (Step 2) */}
           <div className="flex flex-col h-full">
-            {/* Actions: Advanced & History */}
-            <div className="flex justify-end gap-3 mb-2">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#3f4a67]/50 bg-[#1a1b2e]/40 text-slate-500 hover:border-[#4b5563] text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300"
-              >
-                <History className="w-3.5 h-3.5" />
-                Edit History
-              </motion.button>
-
-              <motion.button
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${
-                  showAdvanced 
-                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]" 
-                    : "bg-[#1a1b2e]/40 border-[#3f4a67]/50 text-slate-500 hover:border-[#4b5563]"
-                }`}
-              >
-                <Settings2 className={`w-3.5 h-3.5 transition-transform duration-500 ${showAdvanced ? "rotate-90" : ""}`} />
-                Advanced Config
-              </motion.button>
-            </div>
-
             {/* Step 2: Video Specifications */}
             <motion.div
                initial={{ opacity: 0, x: 20 }}
                animate={{ opacity: 1, x: 0 }}
                transition={{ delay: 0.2 }}
-               className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-[1.5rem] shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-7 transition-all hover:shadow-[0_8px_30px_rgba(34,211,238,0.1)] h-full flex flex-col"
+               className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-[1.5rem] shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-4 transition-all hover:shadow-[0_8px_30px_rgba(34,211,238,0.1)] h-full flex flex-col"
             >
               <div className="text-xl font-semibold mb-6 text-slate-100 flex items-center gap-3">
                 <EmojiIcon icon={Settings} size="sm" /> 
                 <span>Video Specifications</span>
               </div>
               
-              <div className="mb-6">
-                <label className="block text-slate-400 font-bold mb-4 text-[10px] uppercase tracking-[0.2em]">Prompt</label>
-                <textarea 
-                  className="w-full min-h-[80px] p-4 text-sm bg-[#0b0d1f]/60 border border-[#3f4a67]/60 rounded-xl text-white outline-none transition-all placeholder:text-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 focus:shadow-[0_0_20px_rgba(34,211,238,0.1)] resize-none" 
-                  placeholder="Describe your video..."
-                  value={prompt}
-                  onChange={e => setPrompt(e.target.value)}
-                />
+              <div className="mb-4 flex-1 flex flex-col">
+                <label className="block text-slate-400 font-bold mb-2 text-[10px] uppercase tracking-[0.2em]">Prompt</label>
+                <div className="relative flex-1 group/prompt min-h-[100px]">
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 rounded-xl opacity-0 group-hover/prompt:opacity-100 transition-opacity duration-500 blur-md pointer-events-none" />
+                  <textarea 
+                    className="relative w-full h-full p-4 text-sm bg-[#0b0d1f]/80 border border-[#3f4a67]/60 rounded-xl text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500 focus:shadow-[0_0_25px_rgba(34,211,238,0.15)] resize-none shadow-inner leading-relaxed" 
+                    placeholder="Describe your video in detail here... e.g. 'A futuristic cyberpunk city skyline at sunset, with glowing neon signs and flying cars.'"
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                  />
+                  {prompt.length > 0 && (
+                    <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-[10px] font-bold">
+                      {prompt.length} chars
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="mb-6">
-                <label className="block text-slate-400 font-bold mb-4 text-[10px] uppercase tracking-[0.2em]">Aspect Ratio</label>
+              <div className="mb-4">
+                <label className="block text-slate-400 font-bold mb-2 text-[10px] uppercase tracking-[0.2em]">Aspect Ratio</label>
                 <div className="grid grid-cols-4 gap-3">
                   {frameStyleOptions.map((opt) => (
                     <div 
@@ -613,8 +634,8 @@ export function ImagesToVideoUploadScreen() {
                 </div>
               </div>
 
-              <div className="group/input mb-6">
-                <label className="block text-slate-400 font-bold mb-4 text-[10px] uppercase tracking-[0.2em]">
+              <div className="group/input mb-2">
+                <label className="block text-slate-400 font-bold mb-2 text-[10px] uppercase tracking-[0.2em]">
                   Runtime Duration
                 </label>
                 <div className="grid grid-cols-2 gap-3 max-w-sm">
@@ -651,44 +672,8 @@ export function ImagesToVideoUploadScreen() {
           </div>
         </div>
 
-        {/* Global Column Row: Style & Action */}
-        <div className="flex flex-col gap-8 mb-10">
-          {/* Step 3: Choose Style */}
-          <motion.div
-             initial={{ opacity: 0, x: -20 }}
-             animate={{ opacity: 1, x: 0 }}
-             transition={{ delay: 0.3 }}
-             className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-[1.5rem] shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-7 transition-all hover:shadow-[0_8px_30px_rgba(34,211,238,0.1)] w-full"
-          >
-            <div className="text-xl font-semibold mb-6 text-slate-100 flex items-center gap-3">
-              <EmojiIcon icon={Palette} size="sm" /> 
-              <span>Choose Style</span>
-            </div>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4">
-              {styleOptions.map((style) => (
-                <div 
-                  key={style.name}
-                  onClick={() => setSelectedStyle(style.name)}
-                  className={`flex flex-col items-center justify-center bg-[#1a1b2e]/80 border rounded-[1rem] p-4 text-center cursor-pointer transition-all ${
-                    selectedStyle === style.name 
-                      ? "border-cyan-400 bg-cyan-900/30 shadow-[0_0_15px_rgba(6,182,212,0.3)] scale-[1.02]" 
-                      : "border-[#3f4a67]/40 hover:border-cyan-500/40 hover:scale-[1.02]"
-                  }`}
-                >
-                  <EmojiIcon 
-                    icon={style.icon} 
-                    size="sm" 
-                    className={selectedStyle === style.name ? "bg-cyan-500/20 border-cyan-400 w-9 h-9" : "border-slate-600/30 bg-slate-800/40 w-9 h-9"} 
-                  />
-                  <div className={`mt-3 font-medium text-[11px] transition-colors uppercase tracking-wider ${selectedStyle === style.name ? "text-cyan-100" : "text-slate-400"}`}>
-                    {style.name}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
+        {/* Global Column Row: Action */}
+        <div className="flex flex-col gap-4 mb-4">
           {/* Action Button Section */}
           <motion.div 
              initial={{ opacity: 0, y: 10 }}
