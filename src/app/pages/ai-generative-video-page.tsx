@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { motion } from "framer-motion";
-import { ArrowLeft, Sparkles, Video, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, 
   Sparkles, 
   Video,
+  Clock,
   History,
   Settings2,
   Crown,

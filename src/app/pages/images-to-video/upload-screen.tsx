@@ -1,9 +1,30 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, AudioLines, Image as ImageIcon, Upload, Film, Settings, Settings2, Palette, Theater, Sparkles, Star, Target, Wand2, Waves, LucideIcon, Clock, Crown, Download, Zap, Layers, X, Check, History } from "lucide-react";
+import { 
+  ArrowLeft, AudioLines, Image as ImageIcon, Upload, Film, Settings, 
+  Settings2, Palette, Theater, Sparkles, Star, Target, Wand2, Waves, 
+  LucideIcon, Clock, Crown, Download, Zap, Layers, X, Check, History,
+  Instagram, Video, Youtube, User, ChevronDown, LogOut
+} from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/auth-context";
 import { LoginModal } from "../login-modal";
+import { Button } from "../../components/ui/button";
+import { BrandLogo } from "../../components/brand-logo";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { LoadingModal, type LoadingState } from "../../components/loading-modal";
+import { HistoryDialog, type HistoryItem, saveToHistory } from "../../components/history-dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "../../components/ui/dialog";
+import { Label } from "../../components/ui/label";
+import { Switch } from "../../components/ui/switch";
+import { PremiumModal } from "../../components/premium-modal";
 
 const EmojiIcon = ({ icon: Icon, size = "md", className = "" }: { icon: LucideIcon, size?: "sm" | "md" | "lg" | "xl", className?: string }) => {
   const sizeClasses = {
@@ -27,60 +48,6 @@ const EmojiIcon = ({ icon: Icon, size = "md", className = "" }: { icon: LucideIc
 
 export function ImagesToVideoUploadScreen() {
   const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [durationMinutes, setDurationMinutes] = useState(0);
-  const [durationSeconds, setDurationSeconds] = useState(30);
-  const [aspectRatio, setAspectRatio] = useState("16:9");
-  const [selectedStyle, setSelectedStyle] = useState("Dramatic");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [exportQuality, setExportQuality] = useState("1080P");
-  const [frameRate, setFrameRate] = useState("30 FPS");
-  const [isWatermarkEnabled, setIsWatermarkEnabled] = useState(true);
-import { 
-  ArrowLeft, 
-  AudioLines, 
-  Image as ImageIcon, 
-  Instagram, 
-  Sparkles, 
-  Upload, 
-  Video, 
-  Youtube,
-  History,
-  Settings2,
-  Crown,
-  Check,
-  Zap,
-  Download,
-  Layers,
-  User,
-  ChevronDown,
-  LogOut
-} from "lucide-react";
-import { useAuth } from "../../context/auth-context";
-import { useNavigate } from "react-router";
-import { Button } from "../../components/ui/button";
-import { BrandLogo } from "../../components/brand-logo";
-import { Input } from "../../components/ui/input";
-import { Textarea } from "../../components/ui/textarea";
-import { LoadingModal, type LoadingState } from "../../components/loading-modal";
-import { HistoryDialog, type HistoryItem, saveToHistory } from "../../components/history-dialog";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "../../components/ui/dialog";
-import { Label } from "../../components/ui/label";
-import { Switch } from "../../components/ui/switch";
-import { PremiumModal } from "../../components/premium-modal";
-
-export function ImagesToVideoUploadScreen() {
-  const navigate = useNavigate();
   const { isLoggedIn, session, logout } = useAuth();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userName = session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || "User";
@@ -94,6 +61,13 @@ export function ImagesToVideoUploadScreen() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loadingState, setLoadingState] = useState<LoadingState>(null);
   const [loadingMessage, setLoadingMessage] = useState("");
+
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [selectedStyle, setSelectedStyle] = useState("Dramatic");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [frameRate, setFrameRate] = useState("30 FPS");
+  const [isWatermarkEnabled, setIsWatermarkEnabled] = useState(true);
 
   // -- History State --
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -258,23 +232,7 @@ export function ImagesToVideoUploadScreen() {
         backgroundAttachment: 'fixed'
       }}
     >
-      <div className="container mx-auto px-4 py-6 max-w-6xl relative z-10">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-full flex justify-start mb-4">
-            <motion.button
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              onClick={() => navigate("/features")}
-              className="inline-flex items-center gap-2 text-slate-400 hover:text-blue-400 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm font-medium">Back to selection</span>
-            </motion.button>
-          </div>
-          
-          <div className="inline-flex items-center gap-2 bg-cyan-950/30 backdrop-blur-3xl px-4 py-1.5 rounded-full border border-cyan-500/30 shadow-[0_4px_30px_rgba(6,182,212,0.15)] transition-colors cursor-default mb-6">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-xs font-semibold text-cyan-100 tracking-[0.2em] uppercase">Pic-to-Video Creation</span>
+
       {/* Corner Vignettes */}
       <div 
         className="fixed inset-0 pointer-events-none z-0"
@@ -508,7 +466,7 @@ export function ImagesToVideoUploadScreen() {
             </h1>
             <p className="text-slate-400 text-sm font-medium tracking-wide">Transform images into stunning videos in seconds with AI</p>
           </motion.div>
-        </div>
+          </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-8">
           {/* Left Column: Upload Media */}
@@ -927,43 +885,7 @@ export function ImagesToVideoUploadScreen() {
         onClose={() => setIsLoginOpen(false)} 
         customTitle="Welcome back"
         customMessage="Sign in to your Vireonix account to create your video"
-            <p className="text-xs font-semibold text-[#64748b] mt-3">
-              Choosing 4:3, 3:4, 4:5, or 2.35:1 may crop some uploaded assets.
-            </p>
-          </div>
-          {errorMessage && (
-            <p className="mt-2 mb-4 text-sm text-red-400 text-center font-bold bg-red-500/10 border border-red-500/30 py-3 px-4 rounded-xl backdrop-blur-sm">
-              {errorMessage}
-            </p>
-          )}
-
-          <Button
-          onClick={() => {
-            const config = {
-              prompt,
-              duration: durationMinutes * 60 + durationSeconds,
-              ratio: selectedRatio,
-              mediaFiles: mediaFiles.map(f => f.name),
-              audioFile: audioFile?.name,
-              quality: exportQuality,
-              fps,
-              watermark
-            };
-            saveToHistory({
-              title: prompt.slice(0, 30) + (prompt.length > 30 ? "..." : ""),
-              tool: 'avatar',
-              config
-            });
-            handleGenerateVideo();
-          }}
-          disabled={!canGenerate || isGenerating}
-             className="w-full h-14 text-lg font-bold bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-90 text-[#0b0d1f] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] transition-all rounded-xl disabled:opacity-50 disabled:cursor-not-allowed border border-cyan-300/40"
-          >
-            <Video className="w-5 h-5 mr-2" />
-            {isGenerating ? "Generating..." : "Generate video"}
-          </Button>
-        </motion.div>
-      </div>
+      />
 
       <LoadingModal
         state={loadingState}

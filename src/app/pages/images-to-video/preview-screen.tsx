@@ -1,7 +1,6 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import { Download, Share2, Sparkles, Play, ArrowLeft } from "lucide-react";
-import { Download, Share2, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { BrandLogo } from "../../components/brand-logo";
 

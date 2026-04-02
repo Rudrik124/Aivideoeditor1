@@ -119,11 +119,6 @@ export function QuickEditUploadScreen() {
                                    file.type.startsWith("video/") ||
                                    file.type.startsWith("image/") ||
                                    /\.(mp4|mov|m4v|m4a|aac|wav|mp3|jpeg|jpg)$/i.test(file.name);
-      
-      const isGenerallySupported = file.type.startsWith("audio/") ||
-        file.type.startsWith("video/") ||
-        file.type.startsWith("image/") ||
-        /\.(mp4|mov|m4v|m4a|aac|wav|mp3|jpeg|jpg)$/i.test(file.name);
 
       if (!isGenerallySupported) {
         setAudioError("Please upload a file that contains audio (MP3, WAV, Video, etc.)");
