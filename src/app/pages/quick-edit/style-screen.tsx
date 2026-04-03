@@ -247,6 +247,23 @@ export function QuickEditStyleScreen() {
     });
   };
 
+  const getMediaDurationFromPreview = (previewUrl: string, type: 'video' | 'image'): Promise<number> => {
+    return new Promise((resolve) => {
+      if (type === 'image') {
+        resolve(3.0);
+        return;
+      }
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        const duration = Number(video.duration || 0);
+        resolve(duration > 0 ? duration : 10);
+      };
+      video.onerror = () => resolve(10);
+      video.src = previewUrl;
+    });
+  };
+
   const [aiOptions, setAiOptions] = useState({
     subtitles: true,
     autoCuts: true,
@@ -258,6 +275,13 @@ export function QuickEditStyleScreen() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isTransitionsOpen, setIsTransitionsOpen] = useState(false);
   const [isTextToolOpen, setIsTextToolOpen] = useState(false);
+  const [isSpeedOpen, setIsSpeedOpen] = useState(false);
+  const [isTrimOpen, setIsTrimOpen] = useState(false);
+  const [isRotateOpen, setIsRotateOpen] = useState(false);
+  const [isVolumeOpen, setIsVolumeOpen] = useState(false);
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [isKeyframeOpen, setIsKeyframeOpen] = useState(false);
   const [isTextPlacementMode, setIsTextPlacementMode] = useState(false);
   const [overlayText, setOverlayText] = useState('');
   const [overlayFontId, setOverlayFontId] = useState('serif');
@@ -265,6 +289,18 @@ export function QuickEditStyleScreen() {
   const [overlayColor, setOverlayColor] = useState('#FFFFFF');
   const [overlayPosX, setOverlayPosX] = useState(50);
   const [overlayPosY, setOverlayPosY] = useState(50);
+  const [speedValue, setSpeedValue] = useState(1);
+  const [rotationDegrees, setRotationDegrees] = useState(0);
+  const [volumeLevel, setVolumeLevel] = useState(1);
+  const [zoomToolAmount, setZoomToolAmount] = useState(1);
+  const [cropCenterX, setCropCenterX] = useState(50);
+  const [cropCenterY, setCropCenterY] = useState(50);
+  const [cropWidthPct, setCropWidthPct] = useState(100);
+  const [cropHeightPct, setCropHeightPct] = useState(100);
+  const [keyframeMode, setKeyframeMode] = useState<'none' | 'zoom-in' | 'zoom-out' | 'pulse'>('none');
+  const [keyframeAmount, setKeyframeAmount] = useState(1.25);
+  const [keyframeProgress, setKeyframeProgress] = useState(0);
+  const [clipTrimRanges, setClipTrimRanges] = useState<Record<string, { start: number; end: number | null }>>({});
 
   type TransitionType =
     | 'none'
@@ -310,6 +346,29 @@ export function QuickEditStyleScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  const activePreviewItem = mediaItems.find((i) => i.id === activePreviewId) || null;
+
+  const getTrimRangeForItem = useCallback((itemId: string, duration: number) => {
+    const range = clipTrimRanges[itemId];
+    const safeDuration = Math.max(0.01, Number(duration) || 0.01);
+    const start = Math.max(0, Math.min(safeDuration - 0.01, Number(range?.start) || 0));
+    const rawEnd = range?.end;
+    const end = rawEnd == null
+      ? safeDuration
+      : Math.max(start + 0.01, Math.min(safeDuration, Number(rawEnd) || safeDuration));
+    return { start, end };
+  }, [clipTrimRanges]);
+
+  const getEffectiveDurationForItem = useCallback((item: { id: string; type: 'video' | 'image'; duration: number }) => {
+    if (item.type !== 'video') return item.duration;
+    const { start, end } = getTrimRangeForItem(item.id, item.duration);
+    return Math.max(0.01, end - start);
+  }, [getTrimRangeForItem]);
+
+  const getTotalEffectiveDuration = useCallback(() => {
+    return mediaItems.reduce((acc, item) => acc + getEffectiveDurationForItem(item), 0);
+  }, [mediaItems, getEffectiveDurationForItem]);
+
   const triggerClipTransition = useCallback((nextId: string) => {
     if (!activePreviewId || activePreviewId === nextId) {
       setActivePreviewId(nextId);
@@ -350,9 +409,13 @@ export function QuickEditStyleScreen() {
   const togglePlay = () => {
     const activeItem = mediaItems.find(i => i.id === activePreviewId);
     if (activeItem?.type === 'video' && videoRef.current) {
+      const trim = getTrimRangeForItem(activeItem.id, activeItem.duration);
       if (isPlaying) {
         videoRef.current.pause();
       } else {
+        if (videoRef.current.currentTime < trim.start || videoRef.current.currentTime > trim.end) {
+          videoRef.current.currentTime = trim.start;
+        }
         videoRef.current.play();
       }
     }
@@ -362,10 +425,29 @@ export function QuickEditStyleScreen() {
   const handleTimeUpdate = () => {
     if (videoRef.current && mediaItems.length > 0) {
       const activeIndex = mediaItems.findIndex(i => i.id === activePreviewId);
-      const timeBefore = mediaItems.slice(0, activeIndex).reduce((acc, item) => acc + item.duration, 0);
-      const totalDuration = mediaItems.reduce((acc, item) => acc + item.duration, 0);
+      const activeItem = activeIndex >= 0 ? mediaItems[activeIndex] : null;
+      const timeBefore = mediaItems
+        .slice(0, activeIndex)
+        .reduce((acc, item) => acc + getEffectiveDurationForItem(item), 0);
+      const totalDuration = getTotalEffectiveDuration();
 
-      const globalTime = timeBefore + videoRef.current.currentTime;
+      let currentLocalTime = videoRef.current.currentTime;
+      if (activeItem?.type === 'video') {
+        const trim = getTrimRangeForItem(activeItem.id, activeItem.duration);
+        if (currentLocalTime < trim.start) {
+          videoRef.current.currentTime = trim.start;
+          currentLocalTime = trim.start;
+        }
+        if (currentLocalTime >= trim.end) {
+          videoRef.current.currentTime = trim.end;
+          setProgress(((timeBefore + (trim.end - trim.start)) / (totalDuration || 1)) * 100 || 0);
+          playNextMedia();
+          return;
+        }
+        currentLocalTime = Math.max(0, currentLocalTime - trim.start);
+      }
+
+      const globalTime = timeBefore + currentLocalTime;
       const p = (globalTime / totalDuration) * 100;
       setProgress(p || 0);
 
@@ -389,11 +471,18 @@ export function QuickEditStyleScreen() {
       } else {
         setPreviewZoom(1);
       }
+
+      if (activeItem?.type === 'video') {
+        const trim = getTrimRangeForItem(activeItem.id, activeItem.duration);
+        const localDuration = Math.max(0.01, trim.end - trim.start);
+        const localTime = Math.max(0, (videoRef.current.currentTime || 0) - trim.start);
+        setKeyframeProgress(Math.max(0, Math.min(1, localTime / localDuration)));
+      }
     }
   };
 
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const totalDuration = mediaItems.reduce((acc, item) => acc + item.duration, 0);
+    const totalDuration = getTotalEffectiveDuration();
     if (totalDuration === 0) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -403,18 +492,20 @@ export function QuickEditStyleScreen() {
     // Find which item this global time corresponds to
     let accumulated = 0;
     for (const item of mediaItems) {
-      if (globalSeekTime <= accumulated + item.duration) {
+      const itemEffectiveDuration = getEffectiveDurationForItem(item);
+      if (globalSeekTime <= accumulated + itemEffectiveDuration) {
         const offset = globalSeekTime - accumulated;
         triggerClipTransition(item.id);
         // Use a tiny timeout to let the video/img mount before seeking
         setTimeout(() => {
-          if (videoRef.current) {
-            videoRef.current.currentTime = offset;
+          if (videoRef.current && item.type === 'video') {
+            const trim = getTrimRangeForItem(item.id, item.duration);
+            videoRef.current.currentTime = Math.max(trim.start, Math.min(trim.end, trim.start + offset));
           }
         }, 10);
         break;
       }
-      accumulated += item.duration;
+      accumulated += itemEffectiveDuration;
     }
     setProgress(pos * 100);
   };
@@ -433,11 +524,13 @@ export function QuickEditStyleScreen() {
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isMuted;
+      audioRef.current.volume = Math.max(0, Math.min(1, volumeLevel));
     }
     if (videoRef.current) {
       videoRef.current.muted = isMuted;
+      videoRef.current.volume = Math.max(0, Math.min(1, volumeLevel));
     }
-  }, [isMuted]);
+  }, [isMuted, volumeLevel]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -475,8 +568,20 @@ export function QuickEditStyleScreen() {
 
   useEffect(() => {
     if (!videoRef.current) return;
-    videoRef.current.playbackRate = selectedEffect === 'slow-motion' ? slowMotionSpeed : 1;
-  }, [selectedEffect, slowMotionSpeed, activePreviewId]);
+    const effectSpeed = selectedEffect === 'slow-motion' ? slowMotionSpeed : 1;
+    const manualSpeed = Math.abs(speedValue - 1) > 0.001 ? speedValue : effectSpeed;
+    const resolvedSpeed = Math.max(0.1, Math.min(3, manualSpeed));
+    videoRef.current.playbackRate = resolvedSpeed;
+  }, [selectedEffect, slowMotionSpeed, speedValue, activePreviewId]);
+
+  useEffect(() => {
+    const activeItem = mediaItems.find((i) => i.id === activePreviewId);
+    if (!activeItem || activeItem.type !== 'video' || !videoRef.current) return;
+    const trim = getTrimRangeForItem(activeItem.id, activeItem.duration);
+    if (videoRef.current.currentTime < trim.start || videoRef.current.currentTime > trim.end) {
+      videoRef.current.currentTime = trim.start;
+    }
+  }, [activePreviewId, mediaItems, getTrimRangeForItem, clipTrimRanges]);
 
   useEffect(() => {
     const activeCanvasMode = CANVAS_PREVIEW_EFFECTS.includes(selectedEffect)
@@ -704,6 +809,8 @@ export function QuickEditStyleScreen() {
         const globalTime = timeBefore + Math.min(elapsed / 1000, activeItem.duration);
         const p = (globalTime / (totalDuration || 1)) * 100;
         setProgress(Math.min(p, 100) || 0);
+        const localProgress = Math.min(1, (elapsed / 1000) / Math.max(0.01, activeItem.duration));
+        setKeyframeProgress(localProgress);
       }, 100);
 
       timer = setTimeout(() => {
@@ -730,18 +837,21 @@ export function QuickEditStyleScreen() {
           createdPreviewUrlsRef.current.push(preview);
         }
 
-        const newItem = {
-          id: 'initial',
-          file: initialMedia.file || null,
-          preview,
-          type: initialMedia.type || 'video' as const,
-          duration: initialMedia.type === 'image' ? 3.0 : 5.0 // Fallback estimate
-        };
-        setMediaItems([newItem]);
-        setActivePreviewId('initial');
-        // Initialize undo history with initial state
-        setHistory([JSON.stringify([newItem])]);
-        setHistoryIndex(0);
+        const initialType = initialMedia.type || 'video' as const;
+        getMediaDurationFromPreview(preview, initialType).then((resolvedDuration) => {
+          const newItem = {
+            id: 'initial',
+            file: initialMedia.file || null,
+            preview,
+            type: initialType,
+            duration: resolvedDuration,
+          };
+          setMediaItems([newItem]);
+          setActivePreviewId('initial');
+          // Initialize undo history with initial state
+          setHistory([JSON.stringify([newItem])]);
+          setHistoryIndex(0);
+        });
       }
 
       if (initialAudio && initialAudio.file) {
@@ -812,9 +922,82 @@ export function QuickEditStyleScreen() {
     return 'none';
   };
 
+  const getCropInsets = () => {
+    const halfW = cropWidthPct / 2;
+    const halfH = cropHeightPct / 2;
+    const left = Math.max(0, Math.min(100, cropCenterX - halfW));
+    const right = Math.max(0, Math.min(100, 100 - (cropCenterX + halfW)));
+    const top = Math.max(0, Math.min(100, cropCenterY - halfH));
+    const bottom = Math.max(0, Math.min(100, 100 - (cropCenterY + halfH)));
+    return { left, right, top, bottom };
+  };
+
+  const getPreviewClipPath = () => {
+    const insets = getCropInsets();
+    if (
+      Math.abs(insets.left) < 0.001 &&
+      Math.abs(insets.right) < 0.001 &&
+      Math.abs(insets.top) < 0.001 &&
+      Math.abs(insets.bottom) < 0.001
+    ) {
+      return 'none';
+    }
+    return `inset(${insets.top}% ${insets.right}% ${insets.bottom}% ${insets.left}%)`;
+  };
+
+  const getPreviewTransform = () => {
+    const zoomScale = selectedEffect === 'zoom' ? previewZoom : 1;
+    let keyframeScale = 1;
+    if (keyframeMode === 'zoom-in') {
+      keyframeScale = 1 + (keyframeAmount - 1) * keyframeProgress;
+    } else if (keyframeMode === 'zoom-out') {
+      keyframeScale = keyframeAmount - (keyframeAmount - 1) * keyframeProgress;
+    } else if (keyframeMode === 'pulse') {
+      keyframeScale = 1 + (keyframeAmount - 1) * Math.sin(keyframeProgress * Math.PI);
+    }
+    return `scale(${zoomScale * zoomToolAmount * keyframeScale}) rotate(${rotationDegrees}deg)`;
+  };
+
+  const activeTrim = activePreviewItem && activePreviewItem.type === 'video'
+    ? getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration)
+    : null;
+
+  const hasTrimApplied = activeTrim
+    ? activeTrim.start > 0 || (activeTrim.end < (activePreviewItem?.duration || 0) - 0.01)
+    : false;
+
   // -- Handlers --
   const toggleOption = (option: keyof typeof aiOptions) => {
     setAiOptions((prev) => ({ ...prev, [option]: !prev[option] }));
+  };
+
+  const copyActiveClip = () => {
+    if (!activePreviewId) return;
+
+    setMediaItems((prev) => {
+      const index = prev.findIndex((item) => item.id === activePreviewId);
+      if (index === -1) return prev;
+
+      const source = prev[index];
+      const nextId = Math.random().toString(36).substr(2, 9);
+      const preview = source.file ? URL.createObjectURL(source.file) : source.preview;
+
+      if (source.file) {
+        createdPreviewUrlsRef.current.push(preview);
+      }
+
+      const copyItem = {
+        ...source,
+        id: nextId,
+        preview,
+      };
+
+      const updated = [...prev];
+      updated.splice(index + 1, 0, copyItem);
+      saveToUndo(updated);
+      setActivePreviewId(nextId);
+      return updated;
+    });
   };
 
   const handleMediaImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -957,13 +1140,15 @@ export function QuickEditStyleScreen() {
         saturation,
       },
       speed: {
-        enabled: selectedEffect === 'slow-motion',
-        value: slowMotionSpeed,
+        enabled: Math.abs(speedValue - 1) > 0.001 || selectedEffect === 'slow-motion',
+        value: speedValue,
       },
       trim: {
-        enabled: false,
-        start: 0,
-        end: null,
+        enabled: Object.keys(clipTrimRanges).length > 0,
+        activeClipId: activePreviewId,
+        start: activePreviewId ? (clipTrimRanges[activePreviewId]?.start ?? 0) : 0,
+        end: activePreviewId ? (clipTrimRanges[activePreviewId]?.end ?? null) : null,
+        clipRanges: clipTrimRanges,
       },
       textOverlay: {
         enabled: overlayText.trim().length > 0,
@@ -978,21 +1163,40 @@ export function QuickEditStyleScreen() {
         },
       },
       rotate: {
-        enabled: false,
-        degrees: 0,
+        enabled: rotationDegrees % 360 !== 0,
+        degrees: rotationDegrees,
       },
       volume: {
         muted: isMuted,
-        level: isMuted ? 0 : 1,
+        level: isMuted ? 0 : volumeLevel,
       },
       zoom: {
-        enabled: selectedEffect === 'zoom',
+        enabled: zoomToolAmount > 1.001 || selectedEffect === 'zoom',
         mode: 'in',
-        amount: selectedEffect === 'zoom' ? previewZoom : 1,
+        amount: zoomToolAmount,
+      },
+      crop: {
+        enabled:
+          cropWidthPct < 99.99 ||
+          cropHeightPct < 99.99 ||
+          Math.abs(cropCenterX - 50) > 0.01 ||
+          Math.abs(cropCenterY - 50) > 0.01,
+        centerX: cropCenterX,
+        centerY: cropCenterY,
+        widthPct: cropWidthPct,
+        heightPct: cropHeightPct,
       },
       keyframe: {
-        enabled: false,
-        points: [],
+        enabled: keyframeMode !== 'none',
+        mode: keyframeMode,
+        amount: keyframeAmount,
+        points:
+          keyframeMode === 'none'
+            ? []
+            : [
+                { time: 0, value: keyframeMode === 'zoom-out' ? keyframeAmount : 1 },
+                { time: 1, value: keyframeMode === 'zoom-in' ? keyframeAmount : 1 },
+              ],
       },
       aiOptions,
       prompt,
@@ -1293,16 +1497,15 @@ export function QuickEditStyleScreen() {
                   { id: 'effects', icon: Sparkle, label: 'Effects', color: 'text-amber-300' },
                   { id: 'transitions', icon: Layers, label: 'Transitions', color: 'text-cyan-300' },
                   { id: 'filters', icon: Palette, label: 'Filters', color: 'text-pink-300' },
-                  { icon: Timer, label: 'Speed', color: 'text-cyan-300' },
-                  { icon: Scissors, label: 'Trim', color: 'text-green-300' },
-                  { icon: Copy, label: 'Copy', color: 'text-blue-300' },
+                  { id: 'speed', icon: Timer, label: 'Speed', color: 'text-cyan-300' },
+                  { id: 'trim', icon: Scissors, label: 'Trim', color: 'text-green-300' },
+                  { id: 'copy', icon: Copy, label: 'Copy', color: 'text-blue-300' },
                   { id: 'text-tool', icon: Type, label: 'Text', color: 'text-purple-300' },
-                  { icon: Sparkles, label: 'Overlay', color: 'text-orange-300' },
-                  { icon: RotateCw, label: 'Rotate', color: 'text-teal-300' },
-                  { icon: Volume2, label: 'Volume', color: 'text-indigo-300' },
-                  { icon: Crop, label: 'Crop', color: 'text-red-300' },
-                  { icon: ZoomIn, label: 'Zoom', color: 'text-yellow-300' },
-                  { icon: MonitorPlay, label: 'Keyframe', color: 'text-emerald-300' },
+                  { id: 'rotate', icon: RotateCw, label: 'Rotate', color: 'text-teal-300' },
+                  { id: 'volume', icon: Volume2, label: 'Volume', color: 'text-indigo-300' },
+                  { id: 'crop', icon: Crop, label: 'Crop', color: 'text-red-300' },
+                  { id: 'zoom', icon: ZoomIn, label: 'Zoom', color: 'text-yellow-300' },
+                  { id: 'keyframe', icon: MonitorPlay, label: 'Keyframe', color: 'text-emerald-300' },
                 ].map((tool, index) => (
                   <button
                     key={index}
@@ -1318,6 +1521,30 @@ export function QuickEditStyleScreen() {
                       }
                       if ((tool as any).id === 'text-tool') {
                         setIsTextToolOpen(true);
+                      }
+                      if ((tool as any).id === 'speed') {
+                        setIsSpeedOpen(true);
+                      }
+                      if ((tool as any).id === 'trim') {
+                        setIsTrimOpen(true);
+                      }
+                      if ((tool as any).id === 'rotate') {
+                        setIsRotateOpen(true);
+                      }
+                      if ((tool as any).id === 'volume') {
+                        setIsVolumeOpen(true);
+                      }
+                      if ((tool as any).id === 'crop') {
+                        setIsCropOpen(true);
+                      }
+                      if ((tool as any).id === 'zoom') {
+                        setIsZoomOpen(true);
+                      }
+                      if ((tool as any).id === 'copy') {
+                        copyActiveClip();
+                      }
+                      if ((tool as any).id === 'keyframe') {
+                        setIsKeyframeOpen(true);
                       }
                     }}
                     className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 hover:border-white/30 transition-all group"
@@ -1392,7 +1619,8 @@ export function QuickEditStyleScreen() {
                           style={{
                             opacity: selectedEffect === 'fade-in' ? previewOpacity : 1,
                             filter: getCombinedPreviewFilterCss(),
-                            transform: selectedEffect === 'zoom' ? `scale(${previewZoom})` : 'scale(1)',
+                            transform: getPreviewTransform(),
+                            clipPath: getPreviewClipPath(),
                             transformOrigin: 'center center'
                           }}
                           muted={isMuted}
@@ -1414,7 +1642,8 @@ export function QuickEditStyleScreen() {
                           style={{
                             opacity: selectedEffect === 'fade-in' ? previewOpacity : 1,
                             filter: getCombinedPreviewFilterCss(),
-                            transform: selectedEffect === 'zoom' ? `scale(${previewZoom})` : 'scale(1)',
+                            transform: getPreviewTransform(),
+                            clipPath: getPreviewClipPath(),
                             transformOrigin: 'center center'
                           }}
                           alt="Preview"
@@ -1533,6 +1762,44 @@ export function QuickEditStyleScreen() {
                     <span className="text-[10px] text-cyan-400 font-bold leading-none">{aspectRatio} • {fps}FPS</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="absolute top-4 left-4 flex flex-wrap gap-2 max-w-[70%] z-40">
+                {Math.abs(speedValue - 1) > 0.001 && (
+                  <div className="px-2 py-1 rounded-md bg-cyan-500/20 border border-cyan-400/40 text-[9px] font-black uppercase tracking-widest text-cyan-200">
+                    Speed {speedValue.toFixed(2)}x
+                  </div>
+                )}
+                {hasTrimApplied && activeTrim && (
+                  <div className="px-2 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-[9px] font-black uppercase tracking-widest text-emerald-200">
+                    Trim {activeTrim.start.toFixed(2)}s-{activeTrim.end.toFixed(2)}s
+                  </div>
+                )}
+                {rotationDegrees % 360 !== 0 && (
+                  <div className="px-2 py-1 rounded-md bg-teal-500/20 border border-teal-400/40 text-[9px] font-black uppercase tracking-widest text-teal-200">
+                    Rotate {rotationDegrees}°
+                  </div>
+                )}
+                {(isMuted || Math.abs(volumeLevel - 1) > 0.001) && (
+                  <div className="px-2 py-1 rounded-md bg-indigo-500/20 border border-indigo-400/40 text-[9px] font-black uppercase tracking-widest text-indigo-200">
+                    {isMuted ? 'Muted' : `Volume ${Math.round(volumeLevel * 100)}%`}
+                  </div>
+                )}
+                {(cropWidthPct < 99.99 || cropHeightPct < 99.99) && (
+                  <div className="px-2 py-1 rounded-md bg-red-500/20 border border-red-400/40 text-[9px] font-black uppercase tracking-widest text-red-200">
+                    Crop {Math.round(cropWidthPct)}% x {Math.round(cropHeightPct)}%
+                  </div>
+                )}
+                {zoomToolAmount > 1.001 && (
+                  <div className="px-2 py-1 rounded-md bg-yellow-500/20 border border-yellow-400/40 text-[9px] font-black uppercase tracking-widest text-yellow-200">
+                    Zoom {zoomToolAmount.toFixed(2)}x
+                  </div>
+                )}
+                {keyframeMode !== 'none' && (
+                  <div className="px-2 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-[9px] font-black uppercase tracking-widest text-emerald-200">
+                    Keyframe {keyframeMode}
+                  </div>
+                )}
               </div>
 
               {/* Transport Controls */}
@@ -2447,6 +2714,590 @@ export function QuickEditStyleScreen() {
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'flash-transition' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
                   Flash Transition
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isSpeedOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsSpeedOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Speed</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Control preview and export playback speed</p>
+                </div>
+                <button
+                  onClick={() => setIsSpeedOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                  <span>Playback Speed</span>
+                  <span>{speedValue.toFixed(2)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min={0.25}
+                  max={2}
+                  step={0.05}
+                  value={speedValue}
+                  onChange={(e) => setSpeedValue(Number(e.target.value))}
+                  className="w-full accent-cyan-400"
+                />
+                <div className="flex gap-2">
+                  {[0.5, 1, 1.25, 1.5, 2].map((preset) => (
+                    <button
+                      key={preset}
+                      onClick={() => setSpeedValue(preset)}
+                      className={`flex-1 px-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${Math.abs(speedValue - preset) < 0.001 ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+                    >
+                      {preset}x
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setIsSpeedOpen(false)}
+                  className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                >
+                  Apply Speed
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isTrimOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsTrimOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Trim</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Cut start/end for selected video clip</p>
+                </div>
+                <button
+                  onClick={() => setIsTrimOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {activePreviewItem?.type === 'video' ? (
+                <div className="space-y-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                    Clip Duration: {activePreviewItem.duration.toFixed(2)}s
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                      <span>Trim Start</span>
+                      <span>{getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration).start.toFixed(2)}s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={Math.max(0, activePreviewItem.duration - 0.01)}
+                      step={0.01}
+                      value={getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration).start}
+                      onChange={(e) => {
+                        const nextStart = Number(e.target.value);
+                        const current = getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration);
+                        const safeEnd = Math.max(nextStart + 0.01, current.end);
+                        setClipTrimRanges((prev) => ({
+                          ...prev,
+                          [activePreviewItem.id]: {
+                            start: nextStart,
+                            end: Math.min(activePreviewItem.duration, safeEnd),
+                          },
+                        }));
+                        if (videoRef.current) {
+                          videoRef.current.currentTime = nextStart;
+                        }
+                      }}
+                      className="w-full accent-cyan-400"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                      <span>Trim End</span>
+                      <span>{getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration).end.toFixed(2)}s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.01}
+                      max={activePreviewItem.duration}
+                      step={0.01}
+                      value={getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration).end}
+                      onChange={(e) => {
+                        const nextEnd = Number(e.target.value);
+                        const current = getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration);
+                        setClipTrimRanges((prev) => ({
+                          ...prev,
+                          [activePreviewItem.id]: {
+                            start: current.start,
+                            end: Math.max(current.start + 0.01, nextEnd),
+                          },
+                        }));
+                      }}
+                      className="w-full accent-cyan-400"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Start (s)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={Math.max(0, activePreviewItem.duration - 0.01)}
+                        step={0.01}
+                        value={getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration).start.toFixed(2)}
+                        onChange={(e) => {
+                          const nextStart = Number(e.target.value);
+                          const current = getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration);
+                          const safeStart = Math.max(0, Math.min(activePreviewItem.duration - 0.01, nextStart));
+                          const safeEnd = Math.max(safeStart + 0.01, current.end);
+                          setClipTrimRanges((prev) => ({
+                            ...prev,
+                            [activePreviewItem.id]: {
+                              start: safeStart,
+                              end: Math.min(activePreviewItem.duration, safeEnd),
+                            },
+                          }));
+                        }}
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">End (s)</label>
+                      <input
+                        type="number"
+                        min={0.01}
+                        max={activePreviewItem.duration}
+                        step={0.01}
+                        value={getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration).end.toFixed(2)}
+                        onChange={(e) => {
+                          const nextEnd = Number(e.target.value);
+                          const current = getTrimRangeForItem(activePreviewItem.id, activePreviewItem.duration);
+                          const safeEnd = Math.max(current.start + 0.01, Math.min(activePreviewItem.duration, nextEnd));
+                          setClipTrimRanges((prev) => ({
+                            ...prev,
+                            [activePreviewItem.id]: {
+                              start: current.start,
+                              end: safeEnd,
+                            },
+                          }));
+                        }}
+                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (activePreviewItem) {
+                        setClipTrimRanges((prev) => ({
+                          ...prev,
+                          [activePreviewItem.id]: { start: 0, end: activePreviewItem.duration },
+                        }));
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+                  >
+                    Reset Trim
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                  Select a video clip to use trim.
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isRotateOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsRotateOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Rotate</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Rotate preview and export output</p>
+                </div>
+                <button
+                  onClick={() => setIsRotateOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                  <span>Rotation</span>
+                  <span>{rotationDegrees}°</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[0, 90, 180, 270].map((deg) => (
+                    <button
+                      key={deg}
+                      onClick={() => setRotationDegrees(deg)}
+                      className={`px-2 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${rotationDegrees === deg ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+                    >
+                      {deg}°
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setIsRotateOpen(false)}
+                  className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                >
+                  Apply Rotation
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isVolumeOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsVolumeOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Volume</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Adjust preview and export volume</p>
+                </div>
+                <button
+                  onClick={() => setIsVolumeOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => setIsMuted((prev) => !prev)}
+                  className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${isMuted ? 'bg-red-500/20 text-red-300 border-red-500/40' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+                >
+                  {isMuted ? 'Unmute' : 'Mute'}
+                </button>
+
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                  <span>Volume Level</span>
+                  <span>{Math.round(volumeLevel * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={volumeLevel}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setVolumeLevel(next);
+                    if (next > 0 && isMuted) {
+                      setIsMuted(false);
+                    }
+                  }}
+                  className="w-full accent-cyan-400"
+                />
+
+                <button
+                  onClick={() => setIsVolumeOpen(false)}
+                  className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                >
+                  Apply Volume
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isCropOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsCropOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Crop</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Crop area for preview and export</p>
+                </div>
+                <button
+                  onClick={() => setIsCropOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                    <span>Crop Width</span>
+                    <span>{Math.round(cropWidthPct)}%</span>
+                  </div>
+                  <input type="range" min={30} max={100} step={1} value={cropWidthPct} onChange={(e) => setCropWidthPct(Number(e.target.value))} className="w-full accent-cyan-400" />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                    <span>Crop Height</span>
+                    <span>{Math.round(cropHeightPct)}%</span>
+                  </div>
+                  <input type="range" min={30} max={100} step={1} value={cropHeightPct} onChange={(e) => setCropHeightPct(Number(e.target.value))} className="w-full accent-cyan-400" />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                    <span>Center X</span>
+                    <span>{Math.round(cropCenterX)}%</span>
+                  </div>
+                  <input type="range" min={0} max={100} step={1} value={cropCenterX} onChange={(e) => setCropCenterX(Number(e.target.value))} className="w-full accent-cyan-400" />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                    <span>Center Y</span>
+                    <span>{Math.round(cropCenterY)}%</span>
+                  </div>
+                  <input type="range" min={0} max={100} step={1} value={cropCenterY} onChange={(e) => setCropCenterY(Number(e.target.value))} className="w-full accent-cyan-400" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setCropWidthPct(100);
+                      setCropHeightPct(100);
+                      setCropCenterX(50);
+                      setCropCenterY(50);
+                    }}
+                    className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={() => setIsCropOpen(false)}
+                    className="px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                  >
+                    Apply Crop
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isZoomOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsZoomOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Zoom</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Adjust zoom for preview and export</p>
+                </div>
+                <button
+                  onClick={() => setIsZoomOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                  <span>Zoom Level</span>
+                  <span>{zoomToolAmount.toFixed(2)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={2.5}
+                  step={0.05}
+                  value={zoomToolAmount}
+                  onChange={(e) => setZoomToolAmount(Number(e.target.value))}
+                  className="w-full accent-cyan-400"
+                />
+                <button
+                  onClick={() => setZoomToolAmount(1)}
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+                >
+                  Reset Zoom
+                </button>
+                <button
+                  onClick={() => setIsZoomOpen(false)}
+                  className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                >
+                  Apply Zoom
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isKeyframeOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsKeyframeOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Keyframe</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Animate motion over clip time</p>
+                </div>
+                <button
+                  onClick={() => setIsKeyframeOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'none', label: 'None' },
+                    { id: 'zoom-in', label: 'Zoom In' },
+                    { id: 'zoom-out', label: 'Zoom Out' },
+                    { id: 'pulse', label: 'Pulse' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => setKeyframeMode(preset.id as 'none' | 'zoom-in' | 'zoom-out' | 'pulse')}
+                      className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${keyframeMode === preset.id ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                    <span>Strength</span>
+                    <span>{keyframeAmount.toFixed(2)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1.05}
+                    max={1.8}
+                    step={0.05}
+                    value={keyframeAmount}
+                    onChange={(e) => setKeyframeAmount(Number(e.target.value))}
+                    className="w-full accent-cyan-400"
+                    disabled={keyframeMode === 'none'}
+                  />
+                </div>
+
+                <button
+                  onClick={() => setIsKeyframeOpen(false)}
+                  className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                >
+                  Apply Keyframe
                 </button>
               </div>
             </motion.div>

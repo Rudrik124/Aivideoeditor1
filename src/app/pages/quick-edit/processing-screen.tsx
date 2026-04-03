@@ -91,6 +91,80 @@ export function QuickEditProcessingScreen() {
         formData.append("effectSettings", JSON.stringify(editConfig.effectSettings || {}));
         formData.append("transitionPlan", JSON.stringify(editConfig.transitionPlan || []));
         formData.append("editorSelections", JSON.stringify(editConfig.editorSelections || {}));
+        formData.append(
+          "speedValue",
+          String(editConfig.editorSelections?.speed?.value ?? 1),
+        );
+        formData.append(
+          "trimEnabled",
+          String(Boolean(editConfig.editorSelections?.trim?.enabled)),
+        );
+        formData.append(
+          "trimStart",
+          String(editConfig.editorSelections?.trim?.start ?? 0),
+        );
+        formData.append(
+          "trimEnd",
+          editConfig.editorSelections?.trim?.end == null
+            ? ""
+            : String(editConfig.editorSelections.trim.end),
+        );
+        formData.append(
+          "trimClipRanges",
+          JSON.stringify(editConfig.editorSelections?.trim?.clipRanges || {}),
+        );
+        formData.append(
+          "rotateDegrees",
+          String(editConfig.editorSelections?.rotate?.degrees ?? 0),
+        );
+        formData.append(
+          "volumeMuted",
+          String(Boolean(editConfig.editorSelections?.volume?.muted)),
+        );
+        formData.append(
+          "volumeLevel",
+          String(editConfig.editorSelections?.volume?.level ?? 1),
+        );
+        formData.append(
+          "zoomEnabled",
+          String(Boolean(editConfig.editorSelections?.zoom?.enabled)),
+        );
+        formData.append(
+          "zoomAmount",
+          String(editConfig.editorSelections?.zoom?.amount ?? 1),
+        );
+        formData.append(
+          "cropEnabled",
+          String(Boolean(editConfig.editorSelections?.crop?.enabled)),
+        );
+        formData.append(
+          "cropCenterX",
+          String(editConfig.editorSelections?.crop?.centerX ?? 50),
+        );
+        formData.append(
+          "cropCenterY",
+          String(editConfig.editorSelections?.crop?.centerY ?? 50),
+        );
+        formData.append(
+          "cropWidthPct",
+          String(editConfig.editorSelections?.crop?.widthPct ?? 100),
+        );
+        formData.append(
+          "cropHeightPct",
+          String(editConfig.editorSelections?.crop?.heightPct ?? 100),
+        );
+        formData.append(
+          "keyframeEnabled",
+          String(Boolean(editConfig.editorSelections?.keyframe?.enabled)),
+        );
+        formData.append(
+          "keyframeMode",
+          String(editConfig.editorSelections?.keyframe?.mode ?? "none"),
+        );
+        formData.append(
+          "keyframeAmount",
+          String(editConfig.editorSelections?.keyframe?.amount ?? 1.25),
+        );
         formData.append("quickEditMode", "true");
 
         mediaItems.forEach((item: any) => {

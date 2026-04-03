@@ -144,6 +144,28 @@ const processVideo = (input, output, duration = null) => {
   });
 };
 
+const processVideoRange = (input, output, start = 0, duration = null) => {
+  return new Promise((resolve, reject) => {
+    let command = ffmpeg(input).setStartTime(Math.max(0, Number(start) || 0));
+
+    if (Number.isFinite(Number(duration)) && Number(duration) > 0) {
+      command = command.setDuration(Number(duration));
+    }
+
+    command
+      .output(output)
+      .on("end", () => {
+        console.log("✅ Video range processed");
+        resolve(output);
+      })
+      .on("error", (err) => {
+        console.error("❌ FFmpeg Range Error:", err);
+        reject(err);
+      })
+      .run();
+  });
+};
+
 const getVideoDuration = (inputPath) => {
   return new Promise((resolve) => {
     ffmpeg.ffprobe(inputPath, (err, metadata) => {
@@ -759,6 +781,213 @@ const buildAtempoChain = (speed) => {
   return factors.map((f) => `atempo=${f.toFixed(3)}`).join(",");
 };
 
+const hasAudioStream = (inputPath) => {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(inputPath, (err, metadata) => {
+      if (err) {
+        resolve(false);
+        return;
+      }
+      const streams = Array.isArray(metadata?.streams) ? metadata.streams : [];
+      resolve(streams.some((s) => s?.codec_type === "audio"));
+    });
+  });
+};
+
+const applyEditorAdjustments = async (inputPath, editorSelections) => {
+  if (!inputPath || !editorSelections || typeof editorSelections !== "object") {
+    return inputPath;
+  }
+
+  const trim = editorSelections?.trim || {};
+  const speed = editorSelections?.speed || {};
+  const rotate = editorSelections?.rotate || {};
+  const volume = editorSelections?.volume || {};
+  const zoom = editorSelections?.zoom || {};
+  const crop = editorSelections?.crop || {};
+  const keyframe = editorSelections?.keyframe || {};
+
+  const trimEnabled = Boolean(trim?.enabled);
+  const speedEnabled = Boolean(speed?.enabled);
+  const rotateEnabled = Boolean(rotate?.enabled);
+  const zoomEnabled = Boolean(zoom?.enabled);
+  const cropEnabled = Boolean(crop?.enabled);
+  const keyframeEnabled = Boolean(keyframe?.enabled);
+
+  const speedValue = Math.max(0.1, Math.min(3, Number(speed?.value) || 1));
+  const rotateDegreesRaw = Number(rotate?.degrees);
+  const rotateDegrees = Number.isFinite(rotateDegreesRaw)
+    ? ((Math.round(rotateDegreesRaw) % 360) + 360) % 360
+    : 0;
+  const muted = Boolean(volume?.muted);
+  const volumeLevel = Math.max(0, Math.min(2, Number(volume?.level) || 1));
+  const zoomAmount = Math.max(1, Math.min(3, Number(zoom?.amount) || 1));
+  const cropWidthPct = Math.max(10, Math.min(100, Number(crop?.widthPct) || 100));
+  const cropHeightPct = Math.max(10, Math.min(100, Number(crop?.heightPct) || 100));
+  const cropCenterX = Math.max(0, Math.min(100, Number(crop?.centerX) || 50));
+  const cropCenterY = Math.max(0, Math.min(100, Number(crop?.centerY) || 50));
+  const keyframeMode = String(keyframe?.mode || "none");
+  const keyframeAmount = Math.max(1.05, Math.min(1.8, Number(keyframe?.amount) || 1.25));
+
+  const start = Math.max(0, Number(trim?.start) || 0);
+  const endRaw = trim?.end == null ? null : Number(trim?.end);
+  const end = Number.isFinite(endRaw) ? Math.max(start + 0.01, endRaw) : null;
+  const duration = end != null ? Math.max(0.01, end - start) : null;
+  const hasPerClipTrim = Boolean(trim?.clipRanges && Object.keys(trim.clipRanges || {}).length > 0);
+
+  const needsTrim = !hasPerClipTrim && trimEnabled && (start > 0 || duration != null);
+  const needsSpeed = speedEnabled && Math.abs(speedValue - 1) > 0.001;
+  const needsRotate = rotateEnabled && rotateDegrees !== 0;
+  const needsVolume = muted || Math.abs(volumeLevel - 1) > 0.001;
+  const needsZoom = zoomEnabled && zoomAmount > 1.001;
+  const needsCrop =
+    cropEnabled &&
+    (cropWidthPct < 99.99 || cropHeightPct < 99.99 || Math.abs(cropCenterX - 50) > 0.01 || Math.abs(cropCenterY - 50) > 0.01);
+  const needsKeyframe = keyframeEnabled && keyframeMode !== "none";
+
+  if (!needsTrim && !needsSpeed && !needsRotate && !needsVolume && !needsZoom && !needsCrop && !needsKeyframe) {
+    return inputPath;
+  }
+
+  const outputPath = makeTempFilePath("editor-adjusted.mp4");
+  const videoFilters = [];
+  const audioFilters = [];
+
+  if (needsSpeed) {
+    const stretch = 1 / speedValue;
+    videoFilters.push(`setpts=${stretch.toFixed(5)}*PTS`);
+    audioFilters.push(buildAtempoChain(speedValue));
+  }
+
+  if (needsRotate) {
+    if (rotateDegrees === 90) {
+      videoFilters.push("transpose=1");
+    } else if (rotateDegrees === 180) {
+      videoFilters.push("transpose=1,transpose=1");
+    } else if (rotateDegrees === 270) {
+      videoFilters.push("transpose=2");
+    }
+  }
+
+  if (needsCrop) {
+    const xPct = Math.max(0, Math.min(100 - cropWidthPct, cropCenterX - cropWidthPct / 2));
+    const yPct = Math.max(0, Math.min(100 - cropHeightPct, cropCenterY - cropHeightPct / 2));
+    videoFilters.push(
+      `crop=iw*${(cropWidthPct / 100).toFixed(4)}:ih*${(cropHeightPct / 100).toFixed(4)}:iw*${(xPct / 100).toFixed(4)}:ih*${(yPct / 100).toFixed(4)}`,
+    );
+  }
+
+  if (needsZoom) {
+    videoFilters.push(
+      `scale=iw*${zoomAmount.toFixed(4)}:ih*${zoomAmount.toFixed(4)},crop=iw/${zoomAmount.toFixed(4)}:ih/${zoomAmount.toFixed(4)}`,
+    );
+  }
+
+  if (needsKeyframe) {
+    const animDuration = Math.max(0.1, Number(duration) || 10);
+    let zoomExpr = "1";
+    if (keyframeMode === "zoom-in") {
+      zoomExpr = `1+${(keyframeAmount - 1).toFixed(4)}*(t/${animDuration.toFixed(4)})`;
+    } else if (keyframeMode === "zoom-out") {
+      zoomExpr = `${keyframeAmount.toFixed(4)}-${(keyframeAmount - 1).toFixed(4)}*(t/${animDuration.toFixed(4)})`;
+    } else if (keyframeMode === "pulse") {
+      zoomExpr = `1+${(keyframeAmount - 1).toFixed(4)}*(0.5+0.5*sin(2*PI*t/${animDuration.toFixed(4)}))`;
+    }
+
+    videoFilters.push(
+      `scale=iw*(${zoomExpr}):ih*(${zoomExpr}),crop=iw/(${zoomExpr}):ih/(${zoomExpr})`,
+    );
+  }
+
+  if (needsVolume) {
+    audioFilters.push(`volume=${muted ? 0 : volumeLevel.toFixed(3)}`);
+  }
+
+  const hasAudio = await hasAudioStream(inputPath);
+  const safeAudioFilters = hasAudio ? audioFilters : [];
+
+  console.log("🎚️ [API-MEDIA] Applying editor adjustments", {
+    trim: {
+      enabled: trimEnabled,
+      start,
+      end,
+      duration,
+    },
+    speed: {
+      enabled: speedEnabled,
+      value: speedValue,
+    },
+    rotate: {
+      enabled: rotateEnabled,
+      degrees: rotateDegrees,
+    },
+    zoom: {
+      enabled: zoomEnabled,
+      amount: zoomAmount,
+    },
+    crop: {
+      enabled: cropEnabled,
+      centerX: cropCenterX,
+      centerY: cropCenterY,
+      widthPct: cropWidthPct,
+      heightPct: cropHeightPct,
+    },
+    keyframe: {
+      enabled: keyframeEnabled,
+      mode: keyframeMode,
+      amount: keyframeAmount,
+    },
+    volume: {
+      muted,
+      level: volumeLevel,
+      hasAudio,
+    },
+    videoFilters,
+    audioFilters: safeAudioFilters,
+  });
+
+  await new Promise((resolve, reject) => {
+    let command = ffmpeg().input(inputPath);
+
+    if (needsTrim) {
+      command = command.setStartTime(start);
+      if (duration != null) {
+        command = command.setDuration(duration);
+      }
+    }
+
+    if (videoFilters.length) {
+      command = command.videoFilters(videoFilters);
+    }
+
+    if (safeAudioFilters.length) {
+      command = command.audioFilters(safeAudioFilters);
+    }
+
+    const outputOptions = ["-c:v libx264", "-pix_fmt yuv420p", "-movflags +faststart"];
+    if (hasAudio) {
+      outputOptions.push("-c:a aac");
+    } else {
+      outputOptions.push("-an");
+    }
+
+    command
+      .outputOptions(outputOptions)
+      .output(outputPath)
+      .on("end", () => {
+        console.log("✅ [API-MEDIA] Editor adjustments rendering complete");
+        resolve();
+      })
+      .on("error", (err) => {
+        console.error("❌ [API-MEDIA] Editor adjustments rendering failed:", err);
+        reject(err);
+      })
+      .run();
+  });
+
+  return outputPath;
+};
+
 const escapeDrawtext = (text = "") => {
   return String(text)
     .replace(/\\/g, "\\\\")
@@ -1365,7 +1594,35 @@ app.post(
   ]),
   async (req, res) => {
     try {
-      const { prompt, duration, frame, selectedEffect, selectedFilter, effectSettings, transitionPlan, editorSelections, quickEditMode } = req.body || {};
+      const {
+        prompt,
+        duration,
+        frame,
+        selectedEffect,
+        selectedFilter,
+        effectSettings,
+        transitionPlan,
+        editorSelections,
+        quickEditMode,
+        speedValue,
+        trimEnabled,
+        trimStart,
+        trimEnd,
+        trimClipRanges,
+        rotateDegrees,
+        volumeMuted,
+        volumeLevel,
+        zoomEnabled,
+        zoomAmount,
+        cropEnabled,
+        cropCenterX,
+        cropCenterY,
+        cropWidthPct,
+        cropHeightPct,
+        keyframeEnabled,
+        keyframeMode,
+        keyframeAmount,
+      } = req.body || {};
       const files = req.files || {};
       const mediaFiles = Array.isArray(files.media) ? files.media : [];
       const audioFiles = Array.isArray(files.audio) ? files.audio : [];
@@ -1390,6 +1647,104 @@ app.post(
       } catch (e) {
         parsedEditorSelections = {};
       }
+
+      let parsedTrimClipRanges = {};
+      try {
+        parsedTrimClipRanges = trimClipRanges ? JSON.parse(trimClipRanges) : {};
+      } catch (e) {
+        parsedTrimClipRanges = {};
+      }
+
+      const resolvedSpeedValue = Math.max(
+        0.1,
+        Math.min(
+          3,
+          Number(parsedEditorSelections?.speed?.value ?? speedValue ?? 1) || 1,
+        ),
+      );
+
+      const resolvedTrim = {
+        enabled:
+          typeof parsedEditorSelections?.trim?.enabled === "boolean"
+            ? parsedEditorSelections.trim.enabled
+            : String(trimEnabled || "").toLowerCase() === "true",
+        start: Number(parsedEditorSelections?.trim?.start ?? trimStart ?? 0) || 0,
+        end:
+          parsedEditorSelections?.trim?.end != null
+            ? Number(parsedEditorSelections.trim.end)
+            : trimEnd === "" || trimEnd == null
+            ? null
+            : Number(trimEnd),
+        clipRanges:
+          parsedEditorSelections?.trim?.clipRanges && typeof parsedEditorSelections.trim.clipRanges === "object"
+            ? parsedEditorSelections.trim.clipRanges
+            : parsedTrimClipRanges,
+      };
+
+      const resolvedRotate = {
+        enabled:
+          typeof parsedEditorSelections?.rotate?.enabled === "boolean"
+            ? parsedEditorSelections.rotate.enabled
+            : Number(parsedEditorSelections?.rotate?.degrees ?? rotateDegrees ?? 0) % 360 !== 0,
+        degrees: Number(parsedEditorSelections?.rotate?.degrees ?? rotateDegrees ?? 0) || 0,
+      };
+
+      const resolvedVolume = {
+        muted:
+          typeof parsedEditorSelections?.volume?.muted === "boolean"
+            ? parsedEditorSelections.volume.muted
+            : String(volumeMuted || "").toLowerCase() === "true",
+        level: Number(parsedEditorSelections?.volume?.level ?? volumeLevel ?? 1) || 1,
+      };
+
+      const resolvedZoom = {
+        enabled:
+          typeof parsedEditorSelections?.zoom?.enabled === "boolean"
+            ? parsedEditorSelections.zoom.enabled
+            : String(zoomEnabled || "").toLowerCase() === "true",
+        amount: Number(parsedEditorSelections?.zoom?.amount ?? zoomAmount ?? 1) || 1,
+      };
+
+      const resolvedCrop = {
+        enabled:
+          typeof parsedEditorSelections?.crop?.enabled === "boolean"
+            ? parsedEditorSelections.crop.enabled
+            : String(cropEnabled || "").toLowerCase() === "true",
+        centerX: Number(parsedEditorSelections?.crop?.centerX ?? cropCenterX ?? 50) || 50,
+        centerY: Number(parsedEditorSelections?.crop?.centerY ?? cropCenterY ?? 50) || 50,
+        widthPct: Number(parsedEditorSelections?.crop?.widthPct ?? cropWidthPct ?? 100) || 100,
+        heightPct: Number(parsedEditorSelections?.crop?.heightPct ?? cropHeightPct ?? 100) || 100,
+      };
+
+      const resolvedKeyframe = {
+        enabled:
+          typeof parsedEditorSelections?.keyframe?.enabled === "boolean"
+            ? parsedEditorSelections.keyframe.enabled
+            : String(keyframeEnabled || "").toLowerCase() === "true",
+        mode: String(parsedEditorSelections?.keyframe?.mode ?? keyframeMode ?? "none"),
+        amount: Number(parsedEditorSelections?.keyframe?.amount ?? keyframeAmount ?? 1.25) || 1.25,
+        points: Array.isArray(parsedEditorSelections?.keyframe?.points)
+          ? parsedEditorSelections.keyframe.points
+          : [],
+      };
+
+      const resolvedEditorSelections = {
+        ...parsedEditorSelections,
+        speed: {
+          ...(parsedEditorSelections?.speed || {}),
+          value: resolvedSpeedValue,
+          enabled:
+            typeof parsedEditorSelections?.speed?.enabled === "boolean"
+              ? parsedEditorSelections.speed.enabled
+              : Math.abs(resolvedSpeedValue - 1) > 0.001,
+        },
+        trim: resolvedTrim,
+        rotate: resolvedRotate,
+        volume: resolvedVolume,
+        zoom: resolvedZoom,
+        crop: resolvedCrop,
+        keyframe: resolvedKeyframe,
+      };
 
       const selectedEffectFromEditor = parsedEditorSelections?.effect?.selected;
       const inferredEffect = inferEffectFromPrompt(prompt);
@@ -1416,6 +1771,13 @@ app.post(
           : "none";
 
       const resolvedTextOverlay = parsedEditorSelections?.textOverlay || { enabled: false };
+
+      const selectedFontLabel = resolvedTextOverlay?.fontFamily || resolvedTextOverlay?.fontId || "none";
+      const transitionSummary = Array.isArray(resolvedTransitionPlan)
+        ? resolvedTransitionPlan
+            .map((row) => `#${Number(row?.index) || 0}:${String(row?.transition || "none")}`)
+            .join(", ")
+        : "";
 
       const effects = {
         selectedEffect: resolvedSelectedEffect || "none",
@@ -1464,13 +1826,30 @@ app.post(
           clipTransitions: parsedEditorSelections?.transitions?.clipTransitions || {},
         },
         filters: parsedEditorSelections?.filters || { enabled: false },
-        speed: parsedEditorSelections?.speed || { enabled: false },
-        trim: parsedEditorSelections?.trim || { enabled: false },
+        speed: resolvedEditorSelections?.speed || { enabled: false },
+        trim: resolvedEditorSelections?.trim || { enabled: false },
         textOverlay: parsedEditorSelections?.textOverlay || { enabled: false },
-        rotate: parsedEditorSelections?.rotate || { enabled: false },
-        volume: parsedEditorSelections?.volume || { muted: false, level: 1 },
-        zoom: parsedEditorSelections?.zoom || { enabled: false, mode: "in", amount: 1 },
-        keyframe: parsedEditorSelections?.keyframe || { enabled: false, points: [] },
+        rotate: resolvedEditorSelections?.rotate || { enabled: false },
+        volume: resolvedEditorSelections?.volume || { muted: false, level: 1 },
+        zoom: resolvedEditorSelections?.zoom || { enabled: false, mode: "in", amount: 1 },
+        crop: resolvedEditorSelections?.crop || { enabled: false, widthPct: 100, heightPct: 100, centerX: 50, centerY: 50 },
+        keyframe: resolvedEditorSelections?.keyframe || { enabled: false, mode: "none", amount: 1.25, points: [] },
+      });
+
+      console.log("🎯 [API-MEDIA] Selected controls:", {
+        effect: effects.selectedEffect || "none",
+        filter: resolvedSelectedFilter || "none",
+        font: selectedFontLabel,
+        speed: resolvedEditorSelections?.speed?.value || 1,
+        trim: resolvedEditorSelections?.trim || { enabled: false },
+        rotate: resolvedEditorSelections?.rotate || { enabled: false, degrees: 0 },
+        volume: resolvedEditorSelections?.volume || { muted: false, level: 1 },
+        zoom: resolvedEditorSelections?.zoom || { enabled: false, amount: 1 },
+        crop: resolvedEditorSelections?.crop || { enabled: false, widthPct: 100, heightPct: 100 },
+        keyframe: resolvedEditorSelections?.keyframe || { enabled: false, mode: "none", amount: 1.25 },
+        textEnabled: Boolean(resolvedTextOverlay?.enabled),
+        text: String(resolvedTextOverlay?.text || "").slice(0, 80),
+        transitions: transitionSummary || "none",
       });
 
       // Pick video or images as visual source
@@ -1495,9 +1874,16 @@ app.post(
         for (let i = 0; i < mediaFiles.length; i++) {
           const media = mediaFiles[i];
           const segmentPath = makeTempFilePath(`qclip-${i}.mp4`);
+          const mediaMeta = resolvedEditorSelections?.media?.items?.[i] || {};
+          const mediaId = mediaMeta?.id;
+          const rawClipTrim = mediaId ? resolvedEditorSelections?.trim?.clipRanges?.[mediaId] : null;
+          const trimStart = Math.max(0, Number(rawClipTrim?.start) || 0);
+          const trimEndRaw = rawClipTrim?.end == null ? null : Number(rawClipTrim?.end);
+          const trimEnd = Number.isFinite(trimEndRaw) ? Math.max(trimStart + 0.01, trimEndRaw) : null;
+          const trimDuration = trimEnd == null ? null : Math.max(0.01, trimEnd - trimStart);
 
           if (media.mimetype?.startsWith("video/")) {
-            await processVideo(media.path, segmentPath, null);
+            await processVideoRange(media.path, segmentPath, trimStart, trimDuration);
           } else if (media.mimetype?.startsWith("image/")) {
             await createVideoFromImage(media.path, segmentPath, 3, aspect);
           }
@@ -1515,12 +1901,25 @@ app.post(
         seconds = await getVideoDuration(baseOutputPath);
       } else if (videoFile) {
         console.log("🎬 [API-MEDIA] Using uploaded video as source:", videoFile.originalname);
+        const primaryMediaId = resolvedEditorSelections?.media?.items?.[0]?.id;
+        const rawPrimaryTrim = primaryMediaId
+          ? resolvedEditorSelections?.trim?.clipRanges?.[primaryMediaId]
+          : null;
+        const primaryTrimStart = Math.max(0, Number(rawPrimaryTrim?.start) || 0);
+        const primaryTrimEndRaw = rawPrimaryTrim?.end == null ? null : Number(rawPrimaryTrim?.end);
+        const primaryTrimEnd = Number.isFinite(primaryTrimEndRaw)
+          ? Math.max(primaryTrimStart + 0.01, primaryTrimEndRaw)
+          : null;
+        const primaryTrimDuration = primaryTrimEnd == null
+          ? null
+          : Math.max(0.01, primaryTrimEnd - primaryTrimStart);
+
         if (isQuickEditMode) {
           // Preserve full uploaded video for Quick Edit.
-          await processVideo(videoFile.path, baseOutputPath, null);
+          await processVideoRange(videoFile.path, baseOutputPath, primaryTrimStart, primaryTrimDuration);
           seconds = await getVideoDuration(baseOutputPath);
         } else {
-          await processVideo(videoFile.path, baseOutputPath, seconds);
+          await processVideoRange(videoFile.path, baseOutputPath, primaryTrimStart, seconds);
         }
       } else if (imageFiles.length === 1) {
         console.log("🖼️ [API-MEDIA] Using single uploaded image as source:", imageFiles[0].originalname);
@@ -1627,6 +2026,13 @@ app.post(
       // STEP 4: Optional AI transform for non-quick-edit flows only.
       if (!isQuickEditMode) {
         finalOutputPath = await transformVideoWithPrompt(finalOutputPath, prompt, seconds, aspect);
+      }
+
+      // STEP 4.05: Apply editor controls (trim/speed/rotate/volume) before effects.
+      const adjustedPath = await applyEditorAdjustments(finalOutputPath, resolvedEditorSelections);
+      if (adjustedPath !== finalOutputPath) {
+        generatedTempFiles.push(finalOutputPath);
+        finalOutputPath = adjustedPath;
       }
 
       // STEP 4.1: Apply deterministic post-processing effects for export output
