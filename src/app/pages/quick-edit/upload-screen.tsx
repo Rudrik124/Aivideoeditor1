@@ -186,7 +186,7 @@ export function QuickEditUploadScreen() {
           initialMedia: {
             name: uploadedFile.name,
             type: uploadedFile.type.startsWith('video/') ? 'video' : 'image',
-            preview: previewUrl,
+            preview: previewUrl || undefined,
             file: uploadedFile
           },
           initialAudio: audioFile ? {

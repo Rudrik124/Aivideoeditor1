@@ -100,7 +100,46 @@ const editingStyles = [
   },
 ];
 
+const textFontOptions = [
+  { id: 'serif', label: 'SERIF FONT', family: 'Georgia, Times New Roman, serif' },
+  { id: 'sans', label: 'SANS SERIF FONT', family: 'Helvetica, Arial, sans-serif' },
+  { id: 'script', label: 'SCRIPT FONT', family: 'Brush Script MT, cursive' },
+  { id: 'display', label: 'DISPLAY FONT', family: 'Impact, fantasy' },
+  { id: 'mono', label: 'MONOSPACE FONT', family: 'Courier New, monospace' },
+  { id: 'handwritten', label: 'HANDWRITTEN FONT', family: 'Comic Sans MS, cursive' },
+  { id: 'slab', label: 'SLAB SERIF FONT', family: 'Rockwell, Roboto Slab, serif' },
+  { id: 'brush', label: 'BRUSH FONT', family: 'Segoe Script, Brush Script MT, cursive' },
+  { id: 'calligraphy', label: 'CALLIGRAPHY FONT', family: 'Lucida Calligraphy, cursive' },
+  { id: 'vintage', label: 'VINTAGE FONT', family: 'Copperplate, Papyrus, serif' },
+];
+
+const CANVAS_PREVIEW_EFFECTS = [
+  'green-screen',
+  'glitch',
+  'text-animation',
+  'motion-tracking',
+];
+
+const CANVAS_PREVIEW_FILTERS = [
+  'vintage',
+  'soft-glow',
+  'retro-film',
+];
+
 export function QuickEditStyleScreen() {
+    type FilterType =
+      | 'none'
+      | 'vintage'
+      | 'black-white'
+      | 'cinematic'
+      | 'warm'
+      | 'cool'
+      | 'sepia'
+      | 'hdr'
+      | 'vivid'
+      | 'soft-glow'
+      | 'retro-film';
+
   const navigate = useNavigate();
   const location = useLocation();
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -142,9 +181,10 @@ export function QuickEditStyleScreen() {
   const [audioTracks, setAudioTracks] = useState<Array<{ id: string, name: string, type: 'extracted' | 'direct', file?: File }>>([]);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showAudioChoice, setShowAudioChoice] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [history, setHistory] = useState<Array<string>>([]); // Store as JSON strings for easier comparison
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const createdPreviewUrlsRef = useRef<string[]>([]);
 
   // Manage audio object URL to prevent memory leaks
   useEffect(() => {
@@ -156,6 +196,13 @@ export function QuickEditStyleScreen() {
       setAudioUrl(null);
     }
   }, [audioTracks]);
+
+  useEffect(() => {
+    return () => {
+      createdPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      createdPreviewUrlsRef.current = [];
+    };
+  }, []);
 
   const saveToUndo = useCallback((items: typeof mediaItems) => {
     const itemsStr = JSON.stringify(items);
@@ -207,23 +254,98 @@ export function QuickEditStyleScreen() {
     faceTracking: true,
   });
   const [prompt, setPrompt] = useState("");
+  const [isEffectsOpen, setIsEffectsOpen] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [isTransitionsOpen, setIsTransitionsOpen] = useState(false);
+  const [isTextToolOpen, setIsTextToolOpen] = useState(false);
+  const [isTextPlacementMode, setIsTextPlacementMode] = useState(false);
+  const [overlayText, setOverlayText] = useState('');
+  const [overlayFontId, setOverlayFontId] = useState('serif');
+  const [overlayFontSize, setOverlayFontSize] = useState(48);
+  const [overlayColor, setOverlayColor] = useState('#FFFFFF');
+  const [overlayPosX, setOverlayPosX] = useState(50);
+  const [overlayPosY, setOverlayPosY] = useState(50);
+
+  type TransitionType =
+    | 'none'
+    | 'cross-dissolve'
+    | 'slide-left'
+    | 'slide-right'
+    | 'dip-black'
+    | 'dip-white'
+    | 'zoom-transition'
+    | 'blur-transition'
+    | 'spin-transition'
+    | 'glitch-transition'
+    | 'flash-transition';
+
+  const [clipTransitions, setClipTransitions] = useState<Record<string, TransitionType>>({});
+  const [transitionOverlay, setTransitionOverlay] = useState<{
+    fromId: string;
+    toId: string;
+    type: TransitionType;
+    startAt: number;
+    durationMs: number;
+  } | null>(null);
+  const [transitionProgress, setTransitionProgress] = useState(0);
+  const [selectedEffect, setSelectedEffect] = useState<'none' | 'fade-in' | 'blur' | 'zoom' | 'color-correction' | 'vintage' | 'black-white' | 'cinematic' | 'warm' | 'cool' | 'sepia' | 'hdr' | 'vivid' | 'soft-glow' | 'retro-film' | 'green-screen' | 'slow-motion' | 'glitch' | 'transition' | 'slide-left' | 'slide-right' | 'text-animation' | 'motion-tracking'>('none');
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>('none');
+  const [blurAmount, setBlurAmount] = useState(10);
+  const [previewOpacity, setPreviewOpacity] = useState(1);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const [brightness, setBrightness] = useState(1);
+  const [contrast, setContrast] = useState(1);
+  const [saturation, setSaturation] = useState(1);
+  const [slowMotionSpeed, setSlowMotionSpeed] = useState(0.25);
+  const [glitchIntensity, setGlitchIntensity] = useState(1);
+  const [animatedText, setAnimatedText] = useState('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const previewFrameRef = useRef<HTMLDivElement>(null);
+  const greenScreenCanvasRef = useRef<HTMLCanvasElement>(null);
+  const greenScreenAnimationRef = useRef<number | null>(null);
+  const previousFrameRef = useRef<ImageData | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const thumbnailVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  const triggerClipTransition = useCallback((nextId: string) => {
+    if (!activePreviewId || activePreviewId === nextId) {
+      setActivePreviewId(nextId);
+      return;
+    }
+
+    // Transition is primarily defined by the outgoing (currently playing) clip.
+    // Keep next-clip fallback so existing assignments still work.
+    const transitionType = clipTransitions[activePreviewId] || clipTransitions[nextId] || 'none';
+    if (transitionType === 'none') {
+      setActivePreviewId(nextId);
+      return;
+    }
+
+    setTransitionOverlay({
+      fromId: activePreviewId,
+      toId: nextId,
+      type: transitionType,
+      startAt: performance.now(),
+      durationMs: 1400,
+    });
+    setTransitionProgress(0);
+    setActivePreviewId(nextId);
+  }, [activePreviewId, clipTransitions]);
 
   const playNextMedia = useCallback(() => {
     const currentIndex = mediaItems.findIndex(i => i.id === activePreviewId);
     if (currentIndex !== -1 && currentIndex < mediaItems.length - 1) {
       const nextId = mediaItems[currentIndex + 1].id;
-      setActivePreviewId(nextId);
+      triggerClipTransition(nextId);
       // Ensure we keep playing the next track
       setIsPlaying(true);
     } else {
       setIsPlaying(false);
     }
-  }, [activePreviewId, mediaItems]);
+  }, [activePreviewId, mediaItems, triggerClipTransition]);
 
   const togglePlay = () => {
     const activeItem = mediaItems.find(i => i.id === activePreviewId);
@@ -246,6 +368,27 @@ export function QuickEditStyleScreen() {
       const globalTime = timeBefore + videoRef.current.currentTime;
       const p = (globalTime / totalDuration) * 100;
       setProgress(p || 0);
+
+      if (selectedEffect === 'fade-in') {
+        const duration = videoRef.current.duration || 0;
+        if (duration > 0) {
+          const fadeWindow = duration * 0.5;
+          const opacity = Math.min(1, videoRef.current.currentTime / Math.max(fadeWindow, 0.001));
+          setPreviewOpacity(opacity);
+        } else {
+          setPreviewOpacity(0);
+        }
+      } else {
+        setPreviewOpacity(1);
+      }
+
+      if (selectedEffect === 'zoom') {
+        const duration = videoRef.current.duration || 0;
+        const progress = duration > 0 ? videoRef.current.currentTime / duration : 0;
+        setPreviewZoom(1 + progress * 1.5);
+      } else {
+        setPreviewZoom(1);
+      }
     }
   };
 
@@ -262,7 +405,7 @@ export function QuickEditStyleScreen() {
     for (const item of mediaItems) {
       if (globalSeekTime <= accumulated + item.duration) {
         const offset = globalSeekTime - accumulated;
-        setActivePreviewId(item.id);
+        triggerClipTransition(item.id);
         // Use a tiny timeout to let the video/img mount before seeking
         setTimeout(() => {
           if (videoRef.current) {
@@ -299,7 +442,14 @@ export function QuickEditStyleScreen() {
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current.play().catch(e => console.log("Video play failed", e));
+        videoRef.current.play().catch(() => {
+          // If autoplay with audio is blocked, force muted playback for reliable preview.
+          setIsMuted(true);
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            videoRef.current.play().catch(e => console.log("Video play failed", e));
+          }
+        });
       } else {
         videoRef.current.pause();
       }
@@ -307,8 +457,238 @@ export function QuickEditStyleScreen() {
   }, [isPlaying, activePreviewId]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    let progressInterval: NodeJS.Timeout;
+    if (selectedEffect === 'none') {
+      setPreviewOpacity(1);
+      setPreviewZoom(1);
+      return;
+    }
+    if (selectedEffect === 'fade-in') {
+      setPreviewOpacity(0);
+    } else {
+      setPreviewOpacity(1);
+    }
+
+    if (selectedEffect !== 'zoom') {
+      setPreviewZoom(1);
+    }
+  }, [selectedEffect, activePreviewId]);
+
+  useEffect(() => {
+    if (!videoRef.current) return;
+    videoRef.current.playbackRate = selectedEffect === 'slow-motion' ? slowMotionSpeed : 1;
+  }, [selectedEffect, slowMotionSpeed, activePreviewId]);
+
+  useEffect(() => {
+    const activeCanvasMode = CANVAS_PREVIEW_EFFECTS.includes(selectedEffect)
+      ? selectedEffect
+      : CANVAS_PREVIEW_FILTERS.includes(selectedFilter)
+      ? selectedFilter
+      : null;
+
+    if (!activeCanvasMode) {
+      if (greenScreenAnimationRef.current !== null) {
+        cancelAnimationFrame(greenScreenAnimationRef.current);
+        greenScreenAnimationRef.current = null;
+      }
+      previousFrameRef.current = null;
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = greenScreenCanvasRef.current;
+    if (!video || !canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const drawGreenScreen = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (activeCanvasMode === 'green-screen') {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            if (g > 120 && Math.abs(r - b) < 40) {
+              data[i + 3] = 0;
+            }
+          }
+          ctx.putImageData(imageData, 0, 0);
+        }
+
+        if (activeCanvasMode === 'glitch') {
+          for (let i = 0; i < glitchIntensity * 30; i++) {
+            const x = (Math.sin(Date.now() * 0.01 + i) + 1) * canvas.width * 0.5;
+            const y = Math.random() * canvas.height;
+            ctx.fillStyle = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+            ctx.fillRect(x, y, 3, 1);
+          }
+        }
+
+        if (activeCanvasMode === 'vintage') {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+
+            // Old-film wash: warmer lows + reduced saturation.
+            data[i] = r * 0.7 + 20;
+            data[i + 1] = g * 0.6 + 15;
+            data[i + 2] = b * 0.5 + 10;
+
+            const grain = (Math.random() - 0.5) * 30;
+            data[i] = Math.max(0, Math.min(255, data[i] + grain));
+            data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + grain));
+            data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + grain));
+          }
+
+          ctx.putImageData(imageData, 0, 0);
+        }
+
+        if (activeCanvasMode === 'soft-glow') {
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          ctx.filter = 'blur(2px) brightness(1.1)';
+          ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
+          ctx.filter = 'none';
+        }
+
+        if (activeCanvasMode === 'retro-film') {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          for (let i = 0; i < data.length; i += 4) {
+            data[i + 2] = data[i + 2] * 0.85;
+            data[i + 1] = Math.min(255, data[i + 1] * 1.05);
+
+            if (Math.random() < 0.001) {
+              data[i] = 255;
+              data[i + 1] = 255;
+              data[i + 2] = 255;
+            }
+          }
+
+          ctx.putImageData(imageData, 0, 0);
+
+          ctx.save();
+          ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+          ctx.lineWidth = 1;
+          for (let y = 0; y < canvas.height; y += 4) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Transition previews are handled by per-clip transition overlay,
+        // not by global effect canvas rendering.
+
+        if (activeCanvasMode === 'text-animation' && overlayText.trim().length > 0) {
+          const textProgress = (video.currentTime * 2) % 2;
+          const scale = 1 + Math.sin(textProgress * Math.PI) * 0.3;
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.font = 'bold 64px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(0,0,0,0.8)';
+          ctx.shadowBlur = 20;
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.scale(scale, scale);
+          ctx.fillText(overlayText, 0, 0);
+          ctx.restore();
+        }
+
+        if (activeCanvasMode === 'motion-tracking') {
+          const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          if (previousFrameRef.current) {
+            const currentData = currentFrame.data;
+            const prevData = previousFrameRef.current.data;
+            const step = 80;
+            for (let y = 0; y < canvas.height; y += step) {
+              for (let x = 0; x < canvas.width; x += step) {
+                const idx = (y * canvas.width + x) * 4;
+                const motion = Math.abs(currentData[idx] - prevData[idx]) + Math.abs(currentData[idx + 1] - prevData[idx + 1]) + Math.abs(currentData[idx + 2] - prevData[idx + 2]);
+                if (motion > 70) {
+                  ctx.fillStyle = `rgba(255, 0, 0, ${Math.min(0.8, motion / 255)})`;
+                  ctx.beginPath();
+                  ctx.arc(x, y, 10, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+              }
+            }
+          }
+          previousFrameRef.current = currentFrame;
+        }
+      }
+
+      if (isPlaying) {
+        greenScreenAnimationRef.current = requestAnimationFrame(drawGreenScreen);
+      }
+    };
+
+    drawGreenScreen();
+
+    return () => {
+      if (greenScreenAnimationRef.current !== null) {
+        cancelAnimationFrame(greenScreenAnimationRef.current);
+        greenScreenAnimationRef.current = null;
+      }
+    };
+  }, [selectedEffect, selectedFilter, isPlaying, activePreviewId, glitchIntensity, overlayText]);
+
+  // Keep timeline thumbnail videos in sync with the main preview transport state.
+  useEffect(() => {
+    mediaItems.forEach((item) => {
+      if (item.type !== 'video') return;
+      const thumbVideo = thumbnailVideoRefs.current[item.id];
+      if (!thumbVideo) return;
+
+      if (isPlaying && activePreviewId === item.id) {
+        thumbVideo.play().catch(() => { });
+      } else {
+        thumbVideo.pause();
+      }
+    });
+  }, [isPlaying, activePreviewId, mediaItems]);
+
+  useEffect(() => {
+    if (!transitionOverlay) return;
+
+    let raf = 0;
+    const tick = () => {
+      const elapsed = performance.now() - transitionOverlay.startAt;
+      const p = Math.min(1, elapsed / transitionOverlay.durationMs);
+      setTransitionProgress(p);
+      if (p < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        setTransitionOverlay(null);
+        setTransitionProgress(0);
+      }
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [transitionOverlay]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let progressInterval: ReturnType<typeof setInterval>;
     const activeItem = mediaItems.find(i => i.id === activePreviewId);
 
     if (isPlaying && activeItem?.type === 'image') {
@@ -337,33 +717,43 @@ export function QuickEditStyleScreen() {
   }, [isPlaying, activePreviewId, mediaItems, playNextMedia]);
 
   useEffect(() => {
-    if (location.state) {
-      const { initialMedia, initialAudio } = location.state as {
-        initialMedia?: { name: string, type: 'video' | 'image', preview: string, file?: File },
-        initialAudio?: { name: string, type: 'extracted' | 'direct', file?: File }
-      };
+    if (location.state && typeof location.state === 'object') {
+      const state = location.state as any;
+      const { initialMedia, initialAudio } = state;
 
-      if (initialMedia) {
-        setMediaItems([{
+      if (initialMedia && (initialMedia.file || initialMedia.preview)) {
+        const preview = initialMedia.file
+          ? URL.createObjectURL(initialMedia.file)
+          : initialMedia.preview;
+
+        if (initialMedia.file && preview) {
+          createdPreviewUrlsRef.current.push(preview);
+        }
+
+        const newItem = {
           id: 'initial',
           file: initialMedia.file || null,
-          preview: initialMedia.preview,
-          type: initialMedia.type,
+          preview,
+          type: initialMedia.type || 'video' as const,
           duration: initialMedia.type === 'image' ? 3.0 : 5.0 // Fallback estimate
-        }]);
+        };
+        setMediaItems([newItem]);
         setActivePreviewId('initial');
+        // Initialize undo history with initial state
+        setHistory([JSON.stringify([newItem])]);
+        setHistoryIndex(0);
       }
 
-      if (initialAudio) {
+      if (initialAudio && initialAudio.file) {
         setAudioTracks([{
           id: 'initial-audio',
           name: initialAudio.name,
-          type: initialAudio.type,
+          type: initialAudio.type || 'direct',
           file: initialAudio.file
         }]);
       }
     }
-  }, [location.state]);
+  }, []);
 
   // -- Effects --
   useEffect(() => {
@@ -385,6 +775,41 @@ export function QuickEditStyleScreen() {
     if (aspectRatio === '21:9') return 21 / 9;
     if (aspectRatio === 'Custom') return customFrame.width / customFrame.height;
     return 16 / 9;
+  };
+
+  const getPreviewCssFilter = () => {
+    if (selectedEffect === 'blur') return `blur(${blurAmount}px)`;
+    if (selectedEffect === 'color-correction') return `brightness(${brightness}) contrast(${contrast}) saturate(${saturation})`;
+    return 'none';
+  };
+
+  const getPreviewFilterCss = () => {
+    if (selectedEffect === 'black-white') return 'grayscale(1)';
+    if (selectedEffect === 'cinematic') return 'contrast(1.4) brightness(1.1) saturate(1.2)';
+    if (selectedEffect === 'warm') return 'sepia(0.22) saturate(1.15) hue-rotate(-10deg)';
+    if (selectedEffect === 'cool') return 'saturate(1.08) hue-rotate(18deg)';
+    if (selectedEffect === 'sepia') return 'sepia(1)';
+    if (selectedEffect === 'hdr') return 'contrast(1.6) brightness(1.2) saturate(1.4)';
+    if (selectedEffect === 'vivid') return 'contrast(1.3) brightness(1.1) saturate(2.5)';
+
+    if (selectedFilter === 'black-white') return 'grayscale(1)';
+    if (selectedFilter === 'cinematic') return 'contrast(1.4) brightness(1.1) saturate(1.2)';
+    if (selectedFilter === 'warm') return 'sepia(0.22) saturate(1.15) hue-rotate(-10deg)';
+    if (selectedFilter === 'cool') return 'saturate(1.08) hue-rotate(18deg)';
+    if (selectedFilter === 'sepia') return 'sepia(1)';
+    if (selectedFilter === 'hdr') return 'contrast(1.6) brightness(1.2) saturate(1.4)';
+    if (selectedFilter === 'vivid') return 'contrast(1.3) brightness(1.1) saturate(2.5)';
+
+    return 'none';
+  };
+
+  const getCombinedPreviewFilterCss = () => {
+    const effectFilter = getPreviewCssFilter();
+    const filterFilter = getPreviewFilterCss();
+    if (effectFilter !== 'none' && filterFilter !== 'none') return `${effectFilter} ${filterFilter}`;
+    if (effectFilter !== 'none') return effectFilter;
+    if (filterFilter !== 'none') return filterFilter;
+    return 'none';
   };
 
   // -- Handlers --
@@ -438,7 +863,8 @@ export function QuickEditStyleScreen() {
         setAudioTracks(prev => [...prev, {
           id: Math.random().toString(36).substr(2, 9),
           name: file.name,
-          type
+          type,
+          file
         }]);
       }
       setShowAudioChoice(false);
@@ -450,7 +876,136 @@ export function QuickEditStyleScreen() {
     setAudioTracks(prev => prev.filter(t => t.id !== id));
   };
 
+  const applyTransitionForActiveClip = (transition: TransitionType) => {
+    if (!activePreviewId) return;
+
+    setClipTransitions((prev) => ({ ...prev, [activePreviewId]: transition }));
+
+    const currentIndex = mediaItems.findIndex((item) => item.id === activePreviewId);
+    if (currentIndex !== -1 && currentIndex < mediaItems.length - 1) {
+      const nextId = mediaItems[currentIndex + 1].id;
+      setTransitionOverlay({
+        fromId: activePreviewId,
+        toId: nextId,
+        type: transition,
+        startAt: performance.now(),
+        durationMs: 1400,
+      });
+      setTransitionProgress(0);
+      setActivePreviewId(nextId);
+    }
+
+    setIsTransitionsOpen(false);
+  };
+
   const handleGenerate = () => {
+    const effectSettings = {
+      blurAmount,
+      brightness,
+      contrast,
+      saturation,
+      slowMotionSpeed,
+      glitchIntensity,
+      animatedText: overlayText.trim().length > 0 ? overlayText : animatedText,
+    };
+
+    const mediaForProcessing = mediaItems
+      .filter((item) => item.file)
+      .map((item) => ({
+        id: item.id,
+        file: item.file,
+        type: item.type,
+        duration: item.duration,
+      }));
+
+    const transitionPlan = mediaForProcessing.map((item, index) => ({
+      index,
+      transition: clipTransitions[item.id] || 'none',
+    }));
+
+    const audioForProcessing = audioTracks
+      .filter((track) => track.file)
+      .map((track) => ({
+        id: track.id,
+        name: track.name,
+        type: track.type,
+        file: track.file,
+      }));
+
+    const editorSelections = {
+      style: {
+        selected: selectedStyle,
+        aspectRatio,
+        fps,
+        exportQuality,
+        watermark,
+      },
+      effect: {
+        selected: selectedEffect,
+        enabled: selectedEffect !== 'none',
+        settings: effectSettings,
+      },
+      transitions: {
+        transitionPlan,
+        clipTransitions,
+      },
+      filters: {
+        enabled: selectedFilter !== 'none' || selectedEffect === 'color-correction',
+        selected: selectedFilter,
+        brightness,
+        contrast,
+        saturation,
+      },
+      speed: {
+        enabled: selectedEffect === 'slow-motion',
+        value: slowMotionSpeed,
+      },
+      trim: {
+        enabled: false,
+        start: 0,
+        end: null,
+      },
+      textOverlay: {
+        enabled: overlayText.trim().length > 0,
+        text: overlayText,
+        fontId: overlayFontId,
+        fontFamily: textFontOptions.find((f) => f.id === overlayFontId)?.family || textFontOptions[0].family,
+        fontSize: overlayFontSize,
+        color: overlayColor,
+        position: {
+          x: overlayPosX,
+          y: overlayPosY,
+        },
+      },
+      rotate: {
+        enabled: false,
+        degrees: 0,
+      },
+      volume: {
+        muted: isMuted,
+        level: isMuted ? 0 : 1,
+      },
+      zoom: {
+        enabled: selectedEffect === 'zoom',
+        mode: 'in',
+        amount: selectedEffect === 'zoom' ? previewZoom : 1,
+      },
+      keyframe: {
+        enabled: false,
+        points: [],
+      },
+      aiOptions,
+      prompt,
+      media: {
+        items: mediaForProcessing.map((item) => ({ id: item.id, type: item.type, duration: item.duration })),
+        count: mediaForProcessing.length,
+      },
+      audio: {
+        tracks: audioForProcessing.map((track) => ({ id: track.id, name: track.name, type: track.type })),
+        count: audioForProcessing.length,
+      },
+    };
+
     saveToHistory({
       title: `${mediaItems.length > 0 ? mediaItems.length + ' Media Items' : 'Quick Edit'} • ${editingStyles.find(s => s.id === selectedStyle)?.title || selectedStyle}`,
       tool: 'quick-edit',
@@ -460,10 +1015,68 @@ export function QuickEditStyleScreen() {
         fps,
         exportQuality,
         watermark,
-        aiOptions
+        aiOptions,
+        selectedEffect,
+        effectSettings,
+        transitionPlan,
+        editorSelections,
       }
     });
-    navigate("/quick-edit/processing");
+    navigate("/quick-edit/processing", {
+      state: {
+        selectedStyle,
+        aspectRatio,
+        fps,
+        exportQuality,
+        watermark,
+        aiOptions,
+        prompt,
+        selectedEffect,
+        selectedFilter,
+        effectSettings,
+        transitionPlan,
+        editorSelections,
+        mediaItems: mediaForProcessing,
+        audioTracks: audioForProcessing,
+      },
+    });
+  };
+
+  const getTransitionLayerStyle = (
+    layer: 'from' | 'to',
+    type: TransitionType,
+    p: number
+  ): React.CSSProperties => {
+    const isFrom = layer === 'from';
+    const base: React.CSSProperties = { opacity: 1, transform: 'none', filter: 'none' };
+
+    if (type === 'cross-dissolve') {
+      base.opacity = isFrom ? 1 - p : p;
+    } else if (type === 'slide-left') {
+      base.transform = isFrom ? `translateX(${-p * 100}%)` : `translateX(${(1 - p) * 100}%)`;
+    } else if (type === 'slide-right') {
+      base.transform = isFrom ? `translateX(${p * 100}%)` : `translateX(${-(1 - p) * 100}%)`;
+    } else if (type === 'zoom-transition') {
+      base.opacity = isFrom ? 1 - p : p;
+      base.transform = isFrom ? `scale(${1 + p * 0.25})` : `scale(${1.25 - p * 0.25})`;
+    } else if (type === 'blur-transition') {
+      base.opacity = isFrom ? 1 - p : p;
+      base.filter = `blur(${isFrom ? p * 10 : (1 - p) * 10}px)`;
+    } else if (type === 'spin-transition') {
+      base.opacity = isFrom ? 1 - p : p;
+      base.transform = `rotate(${isFrom ? -120 * p : 120 * (1 - p)}deg) scale(${isFrom ? 1 - p * 0.15 : 0.85 + p * 0.15})`;
+    } else if (type === 'glitch-transition') {
+      const jitter = Math.sin(p * 80) * (isFrom ? 6 : 4);
+      base.opacity = isFrom ? 1 - p : p;
+      base.transform = `translateX(${jitter}px)`;
+      base.filter = `contrast(${1.2 + p}) saturate(${1.1 + p * 0.7}) hue-rotate(${isFrom ? p * 45 : (1 - p) * 45}deg)`;
+    } else if (type === 'flash-transition') {
+      base.opacity = isFrom ? 1 - p : p;
+    } else if (type === 'dip-black' || type === 'dip-white') {
+      base.opacity = isFrom ? (p < 0.5 ? 1 - p * 2 : 0) : (p < 0.5 ? 0 : (p - 0.5) * 2);
+    }
+
+    return base;
   };
 
   return (
@@ -677,13 +1290,14 @@ export function QuickEditStyleScreen() {
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest px-1">Quick Tools</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { icon: Sparkle, label: 'Effects', color: 'text-amber-300' },
-                  { icon: Palette, label: 'Filters', color: 'text-pink-300' },
+                  { id: 'effects', icon: Sparkle, label: 'Effects', color: 'text-amber-300' },
+                  { id: 'transitions', icon: Layers, label: 'Transitions', color: 'text-cyan-300' },
+                  { id: 'filters', icon: Palette, label: 'Filters', color: 'text-pink-300' },
                   { icon: Timer, label: 'Speed', color: 'text-cyan-300' },
                   { icon: Scissors, label: 'Trim', color: 'text-green-300' },
                   { icon: Copy, label: 'Copy', color: 'text-blue-300' },
-                  { icon: Type, label: 'Text', color: 'text-purple-300' },
-                  { icon: Layers, label: 'Overlay', color: 'text-orange-300' },
+                  { id: 'text-tool', icon: Type, label: 'Text', color: 'text-purple-300' },
+                  { icon: Sparkles, label: 'Overlay', color: 'text-orange-300' },
                   { icon: RotateCw, label: 'Rotate', color: 'text-teal-300' },
                   { icon: Volume2, label: 'Volume', color: 'text-indigo-300' },
                   { icon: Crop, label: 'Crop', color: 'text-red-300' },
@@ -692,6 +1306,20 @@ export function QuickEditStyleScreen() {
                 ].map((tool, index) => (
                   <button
                     key={index}
+                    onClick={() => {
+                      if ((tool as any).id === 'effects') {
+                        setIsEffectsOpen(true);
+                      }
+                      if ((tool as any).id === 'filters') {
+                        setIsFiltersOpen(true);
+                      }
+                      if ((tool as any).id === 'transitions') {
+                        setIsTransitionsOpen(true);
+                      }
+                      if ((tool as any).id === 'text-tool') {
+                        setIsTextToolOpen(true);
+                      }
+                    }}
                     className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 hover:border-white/30 transition-all group"
                   >
                     <tool.icon className={`w-5 h-5 ${tool.color} group-hover:scale-110 transition-transform`} />
@@ -714,11 +1342,21 @@ export function QuickEditStyleScreen() {
             </div>
 
             <motion.div
+              ref={previewFrameRef}
               layout
               animate={{
                 aspectRatio: getRatioValue()
               }}
-              className="relative h-full max-w-4xl max-h-[85%] rounded-2xl bg-slate-900 border border-white/20 shadow-2xl overflow-hidden shadow-cyan-500/5 flex items-center justify-center transition-all duration-500"
+              onClick={(e) => {
+                if (!isTextPlacementMode || !previewFrameRef.current) return;
+                const rect = previewFrameRef.current.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                setOverlayPosX(Math.max(0, Math.min(100, x)));
+                setOverlayPosY(Math.max(0, Math.min(100, y)));
+                setIsTextPlacementMode(false);
+              }}
+              className={`relative h-full max-w-4xl max-h-[85%] rounded-2xl bg-slate-900 border border-white/20 shadow-2xl overflow-hidden shadow-cyan-500/5 flex items-center justify-center transition-all duration-500 ${isTextPlacementMode ? 'cursor-crosshair' : 'cursor-default'}`}
             >
               <AnimatePresence mode="popLayout">
                 {activePreviewId && mediaItems.find(i => i.id === activePreviewId) ? (
@@ -731,24 +1369,54 @@ export function QuickEditStyleScreen() {
                     className="absolute inset-0 w-full h-full"
                   >
                     {mediaItems.find(i => i.id === activePreviewId)?.type === 'video' ? (
-                      <video
-                        ref={videoRef}
-                        onTimeUpdate={handleTimeUpdate}
-                        onEnded={playNextMedia}
-                        onCanPlay={(e) => {
-                          if (isPlaying) e.currentTarget.play().catch(() => { });
-                        }}
-                        src={mediaItems.find(i => i.id === activePreviewId)?.preview}
-                        className="w-full h-full object-contain"
-                        muted={isMuted}
-                        playsInline
-                        loop={false}
-                      />
+                      <>
+                        <video
+                          ref={videoRef}
+                          onTimeUpdate={handleTimeUpdate}
+                          onEnded={playNextMedia}
+                          onLoadedMetadata={() => {
+                            if (selectedEffect === 'fade-in') {
+                              setPreviewOpacity(0);
+                            } else {
+                              setPreviewOpacity(1);
+                            }
+                            if (selectedEffect !== 'zoom') {
+                              setPreviewZoom(1);
+                            }
+                          }}
+                          onCanPlay={(e) => {
+                            if (isPlaying) e.currentTarget.play().catch(() => { });
+                          }}
+                          src={mediaItems.find(i => i.id === activePreviewId)?.preview}
+                          className={CANVAS_PREVIEW_EFFECTS.includes(selectedEffect) || CANVAS_PREVIEW_FILTERS.includes(selectedFilter) ? 'hidden' : 'w-full h-full object-contain'}
+                          style={{
+                            opacity: selectedEffect === 'fade-in' ? previewOpacity : 1,
+                            filter: getCombinedPreviewFilterCss(),
+                            transform: selectedEffect === 'zoom' ? `scale(${previewZoom})` : 'scale(1)',
+                            transformOrigin: 'center center'
+                          }}
+                          muted={isMuted}
+                          playsInline
+                          loop={false}
+                        />
+                        {(CANVAS_PREVIEW_EFFECTS.includes(selectedEffect) || CANVAS_PREVIEW_FILTERS.includes(selectedFilter)) && (
+                          <canvas
+                            ref={greenScreenCanvasRef}
+                            className="w-full h-full object-contain"
+                          />
+                        )}
+                      </>
                     ) : (
                       <>
                         <img
                           src={mediaItems.find(i => i.id === activePreviewId)?.preview}
                           className="w-full h-full object-contain"
+                          style={{
+                            opacity: selectedEffect === 'fade-in' ? previewOpacity : 1,
+                            filter: getCombinedPreviewFilterCss(),
+                            transform: selectedEffect === 'zoom' ? `scale(${previewZoom})` : 'scale(1)',
+                            transformOrigin: 'center center'
+                          }}
                           alt="Preview"
                         />
                         {audioUrl && (
@@ -774,6 +1442,88 @@ export function QuickEditStyleScreen() {
                   </div>
                 )}
               </AnimatePresence>
+
+              {transitionOverlay && (
+                <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
+                  {(() => {
+                    const fromItem = mediaItems.find((m) => m.id === transitionOverlay.fromId);
+                    const toItem = mediaItems.find((m) => m.id === transitionOverlay.toId);
+                    if (!fromItem || !toItem) return null;
+
+                    const transitionFilter = getCombinedPreviewFilterCss();
+                    const fromStyle = {
+                      ...getTransitionLayerStyle('from', transitionOverlay.type, transitionProgress),
+                      filter: transitionFilter !== 'none'
+                        ? `${getTransitionLayerStyle('from', transitionOverlay.type, transitionProgress).filter === 'none' ? '' : `${getTransitionLayerStyle('from', transitionOverlay.type, transitionProgress).filter} `}${transitionFilter}`.trim()
+                        : getTransitionLayerStyle('from', transitionOverlay.type, transitionProgress).filter,
+                    };
+                    const toStyle = {
+                      ...getTransitionLayerStyle('to', transitionOverlay.type, transitionProgress),
+                      filter: transitionFilter !== 'none'
+                        ? `${getTransitionLayerStyle('to', transitionOverlay.type, transitionProgress).filter === 'none' ? '' : `${getTransitionLayerStyle('to', transitionOverlay.type, transitionProgress).filter} `}${transitionFilter}`.trim()
+                        : getTransitionLayerStyle('to', transitionOverlay.type, transitionProgress).filter,
+                    };
+
+                    return (
+                      <>
+                        <div className="absolute inset-0" style={fromStyle}>
+                          {fromItem.type === 'video' ? (
+                            <video src={fromItem.preview} className="w-full h-full object-contain" muted playsInline autoPlay loop />
+                          ) : (
+                            <img src={fromItem.preview} className="w-full h-full object-contain" alt="Transition from" />
+                          )}
+                        </div>
+                        <div className="absolute inset-0" style={toStyle}>
+                          {toItem.type === 'video' ? (
+                            <video src={toItem.preview} className="w-full h-full object-contain" muted playsInline autoPlay loop />
+                          ) : (
+                            <img src={toItem.preview} className="w-full h-full object-contain" alt="Transition to" />
+                          )}
+                        </div>
+                        {(transitionOverlay.type === 'dip-black' || transitionOverlay.type === 'dip-white' || transitionOverlay.type === 'flash-transition') && (
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              background:
+                                transitionOverlay.type === 'dip-white' || transitionOverlay.type === 'flash-transition'
+                                  ? '#ffffff'
+                                  : '#000000',
+                              opacity:
+                                transitionOverlay.type === 'flash-transition'
+                                  ? Math.max(0, 1 - Math.abs(transitionProgress - 0.5) * 4)
+                                  : transitionProgress < 0.5
+                                    ? transitionProgress * 2
+                                    : (1 - transitionProgress) * 2,
+                            }}
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {selectedEffect !== 'text-animation' && overlayText.trim().length > 0 && (
+                <div
+                  className="absolute z-40 pointer-events-none select-none"
+                  style={{
+                    left: `${overlayPosX}%`,
+                    top: `${overlayPosY}%`,
+                    transform: 'translate(-50%, -50%)',
+                    fontFamily: textFontOptions.find((f) => f.id === overlayFontId)?.family || textFontOptions[0].family,
+                    fontSize: `${overlayFontSize}px`,
+                    color: overlayColor,
+                    textShadow: '0 4px 14px rgba(0,0,0,0.8)',
+                    fontWeight: 700,
+                    letterSpacing: '0.02em',
+                    textAlign: 'center',
+                    whiteSpace: 'pre-wrap',
+                    maxWidth: '88%',
+                  }}
+                >
+                  {overlayText}
+                </div>
+              )}
 
               {/* HUD Overlays */}
               <div className="absolute top-4 right-4 flex flex-col gap-2">
@@ -846,14 +1596,29 @@ export function QuickEditStyleScreen() {
                     layout
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    onClick={() => setActivePreviewId(item.id)}
+                    onClick={() => triggerClipTransition(item.id)}
                     style={{ aspectRatio: getRatioValue() }}
                     className={`group relative flex-none h-full rounded-xl border transition-all cursor-pointer overflow-hidden ring-1 shadow-xl ${activePreviewId === item.id
                       ? 'border-cyan-500 ring-cyan-500/50 scale-[1.02] shadow-cyan-500/10'
                       : 'border-white/10 bg-slate-900 ring-white/5 hover:border-white/30'
                       }`}
                   >
-                    <img src={item.preview} alt="" className="w-full h-full object-cover" />
+                      {item.type === 'video' ? (
+                        <video
+                          ref={(el) => {
+                            thumbnailVideoRefs.current[item.id] = el;
+                          }}
+                          src={item.preview}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                          autoPlay={activePreviewId === item.id && isPlaying}
+                          loop={activePreviewId === item.id && isPlaying}
+                          preload="metadata"
+                        />
+                      ) : (
+                        <img src={item.preview} alt="" className="w-full h-full object-cover" />
+                      )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <button
                         onClick={() => removeMediaItem(item.id)}
@@ -865,6 +1630,11 @@ export function QuickEditStyleScreen() {
                     <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[8px] font-black text-white/60 uppercase">
                       {item.type}
                     </div>
+                    {!!clipTransitions[item.id] && clipTransitions[item.id] !== 'none' && (
+                      <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/40 text-[8px] font-black text-cyan-300 uppercase">
+                        {clipTransitions[item.id]}
+                      </div>
+                    )}
                   </motion.div>
                 ))}
 
@@ -1194,6 +1964,647 @@ export function QuickEditStyleScreen() {
         </div>
 
       </footer>
+
+      <AnimatePresence>
+        {isFiltersOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[121] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsFiltersOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Filters</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Choose a visual filter</p>
+                </div>
+                <button
+                  onClick={() => setIsFiltersOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setSelectedFilter('none');
+                    setIsFiltersOpen(false);
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'none' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  No Filter
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('vintage'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'vintage' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Vintage (Old Film)
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('black-white'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'black-white' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Black and White
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('cinematic'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'cinematic' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Cinematic
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('warm'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'warm' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Warm
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('cool'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'cool' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Cool
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('sepia'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'sepia' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Sepia
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('hdr'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'hdr' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  HDR
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('vivid'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'vivid' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Vivid
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('soft-glow'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'soft-glow' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Soft Glow
+                </button>
+                <button
+                  onClick={() => { setSelectedFilter('retro-film'); setIsFiltersOpen(false); }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'retro-film' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Retro Film (VHS)
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isEffectsOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsEffectsOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Effects</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Choose an effect for preview</p>
+                </div>
+                <button
+                  onClick={() => setIsEffectsOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setSelectedEffect('none');
+                    setIsEffectsOpen(false);
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'none' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  No Effect
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('fade-in');
+                    setIsEffectsOpen(false);
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'fade-in' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Fade In
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('blur');
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'blur' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Blur
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('zoom');
+                    setIsEffectsOpen(false);
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'zoom' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Zoom
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('color-correction');
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'color-correction' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Color Correction
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('green-screen');
+                    setIsEffectsOpen(false);
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'green-screen' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Green Screen
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('slow-motion');
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'slow-motion' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Slow Motion
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('glitch');
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'glitch' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Glitch
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('transition');
+                    setIsEffectsOpen(false);
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'transition' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Transition
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('text-animation');
+                    setIsEffectsOpen(false);
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'text-animation' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Text Animation
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedEffect('motion-tracking');
+                    setIsEffectsOpen(false);
+                  }}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'motion-tracking' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Motion Tracking
+                </button>
+
+                {selectedEffect === 'blur' && (
+                  <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">
+                      <span>Blur Amount</span>
+                      <span>{blurAmount}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={30}
+                      value={blurAmount}
+                      onChange={(e) => setBlurAmount(Number(e.target.value))}
+                      className="w-full accent-cyan-400"
+                    />
+                    <button
+                      onClick={() => setIsEffectsOpen(false)}
+                      className="mt-3 w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                    >
+                      Apply Blur
+                    </button>
+                  </div>
+                )}
+
+                {selectedEffect === 'color-correction' && (
+                  <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                        <span>Brightness</span>
+                        <span>{brightness.toFixed(1)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.1}
+                        max={3}
+                        step={0.1}
+                        value={brightness}
+                        onChange={(e) => setBrightness(Number(e.target.value))}
+                        className="w-full accent-cyan-400"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                        <span>Contrast</span>
+                        <span>{contrast.toFixed(1)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.1}
+                        max={3}
+                        step={0.1}
+                        value={contrast}
+                        onChange={(e) => setContrast(Number(e.target.value))}
+                        className="w-full accent-cyan-400"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                        <span>Saturation</span>
+                        <span>{saturation.toFixed(1)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={3}
+                        step={0.1}
+                        value={saturation}
+                        onChange={(e) => setSaturation(Number(e.target.value))}
+                        className="w-full accent-cyan-400"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setIsEffectsOpen(false)}
+                      className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                    >
+                      Apply Color
+                    </button>
+                  </div>
+                )}
+
+                {selectedEffect === 'slow-motion' && (
+                  <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                      <span>Speed</span>
+                      <span>{slowMotionSpeed.toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={1}
+                      step={0.1}
+                      value={slowMotionSpeed}
+                      onChange={(e) => setSlowMotionSpeed(Number(e.target.value))}
+                      className="w-full accent-cyan-400"
+                    />
+                    <button
+                      onClick={() => setIsEffectsOpen(false)}
+                      className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                    >
+                      Apply Slow Motion
+                    </button>
+                  </div>
+                )}
+
+                {selectedEffect === 'glitch' && (
+                  <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-1">
+                      <span>Glitch Intensity</span>
+                      <span>{glitchIntensity.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={3}
+                      step={0.5}
+                      value={glitchIntensity}
+                      onChange={(e) => setGlitchIntensity(Number(e.target.value))}
+                      className="w-full accent-cyan-400"
+                    />
+                    <button
+                      onClick={() => setIsEffectsOpen(false)}
+                      className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                    >
+                      Apply Glitch
+                    </button>
+                  </div>
+                )}
+
+                {selectedEffect === 'text-animation' && (
+                  <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Overlay Text</label>
+                    <input
+                      value={animatedText}
+                      onChange={(e) => {
+                        setAnimatedText(e.target.value);
+                        setOverlayText(e.target.value);
+                      }}
+                      placeholder="Enter text"
+                      className="w-full px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+                    />
+                    <button
+                      onClick={() => setIsEffectsOpen(false)}
+                      className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                    >
+                      Apply Text
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isTransitionsOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[121] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setIsTransitionsOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Transitions</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Assign transition to selected clip</p>
+                </div>
+                <button
+                  onClick={() => setIsTransitionsOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="mb-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                {activePreviewId
+                  ? `Selected Clip: ${activePreviewId.slice(0, 8)} • ${clipTransitions[activePreviewId] || 'none'}`
+                  : 'Select a clip from Media Sequence first'}
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  onClick={() => applyTransitionForActiveClip('cross-dissolve')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'cross-dissolve' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Cross Dissolve
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('slide-left')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'slide-left' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Slide Left
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('slide-right')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'slide-right' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Slide Right
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('dip-black')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'dip-black' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Dip to Black
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('dip-white')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'dip-white' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Dip to White
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('zoom-transition')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'zoom-transition' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Zoom Transition
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('blur-transition')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'blur-transition' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Blur Transition
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('spin-transition')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'spin-transition' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Spin Transition
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('glitch-transition')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'glitch-transition' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Glitch Transition
+                </button>
+                <button
+                  onClick={() => applyTransitionForActiveClip('flash-transition')}
+                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${activePreviewId && clipTransitions[activePreviewId] === 'flash-transition' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                >
+                  Flash Transition
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isTextToolOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[122] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => {
+              setIsTextToolOpen(false);
+              setIsTextPlacementMode(false);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Text Overlay</h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Select font and place text in preview</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsTextToolOpen(false);
+                    setIsTextPlacementMode(false);
+                  }}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Text</label>
+                  <Textarea
+                    value={overlayText}
+                    onChange={(e) => {
+                      setOverlayText(e.target.value);
+                      setAnimatedText(e.target.value);
+                    }}
+                    placeholder="Enter text"
+                    className="mt-2 bg-black/30 border-white/10 text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Font</label>
+                  <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-2 max-h-44 overflow-y-auto custom-scrollbar pr-1">
+                    {textFontOptions.map((font) => (
+                      <button
+                        key={font.id}
+                        onClick={() => setOverlayFontId(font.id)}
+                        className={`px-3 py-2 rounded-lg text-left text-[10px] font-bold uppercase tracking-wide border transition-colors ${overlayFontId === font.id ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+                        style={{ fontFamily: font.family }}
+                      >
+                        {font.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Size</label>
+                    <input
+                      type="range"
+                      min={18}
+                      max={96}
+                      value={overlayFontSize}
+                      onChange={(e) => setOverlayFontSize(Number(e.target.value))}
+                      className="w-full mt-2 accent-cyan-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Color</label>
+                    <input
+                      type="color"
+                      value={overlayColor}
+                      onChange={(e) => setOverlayColor(e.target.value)}
+                      className="w-full mt-2 h-9 rounded-lg bg-transparent border border-white/10"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => {
+                        setIsTextPlacementMode(true);
+                        setIsTextToolOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${isTextPlacementMode ? 'bg-cyan-500 text-[#0b0d1f] border-cyan-400' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
+                    >
+                      {isTextPlacementMode ? 'Click Preview to Place' : 'Place on Preview'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-300">X Position</label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={overlayPosX}
+                      onChange={(e) => setOverlayPosX(Number(e.target.value))}
+                      className="w-full mt-2 accent-cyan-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Y Position</label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={overlayPosY}
+                      onChange={(e) => setOverlayPosY(Number(e.target.value))}
+                      className="w-full mt-2 accent-cyan-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    onClick={() => {
+                      setOverlayText('');
+                      setAnimatedText('');
+                      setIsTextPlacementMode(false);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/40 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/25 transition-colors"
+                  >
+                    Delete Text
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsTextToolOpen(false);
+                      setIsTextPlacementMode(false);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
+                  >
+                    Apply Text Overlay
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <HistoryDialog
         open={isHistoryOpen}

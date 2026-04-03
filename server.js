@@ -5,6 +5,8 @@ import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
+import os from "os";
+import path from "path";
 import dotenv from "dotenv";
 
 // Load environment variables (including GEMINI_API_KEY and Supabase keys)
@@ -27,6 +29,15 @@ const upload = multer({ dest: "uploads/" });
 // Ensure working directories exist.
 fs.mkdirSync("uploads", { recursive: true });
 fs.mkdirSync("outputs", { recursive: true });
+
+const tempWorkDir = path.join(os.tmpdir(), "aivideoeditor1-temp");
+fs.mkdirSync(tempWorkDir, { recursive: true });
+
+const makeTempFilePath = (suffix) => {
+  const safeSuffix = String(suffix || "temp.bin").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return path.join(tempWorkDir, `${unique}-${safeSuffix}`);
+};
 
 // ✅ INIT SUPABASE
 const supabaseUrl = process.env.SUPABASE_URL || "https://cowdbhlpxzrlcbsxrvwh.supabase.co";
@@ -111,11 +122,15 @@ app.get("/", (req, res) => {
 });
 
 // ✅ VIDEO PROCESS FUNCTION (uploaded source - trims/exports video)
-const processVideo = (input, output, duration = 10) => {
+const processVideo = (input, output, duration = null) => {
   return new Promise((resolve, reject) => {
-    ffmpeg(input)
-      .setStartTime(0)
-      .setDuration(duration)
+    let command = ffmpeg(input).setStartTime(0);
+
+    if (Number.isFinite(Number(duration)) && Number(duration) > 0) {
+      command = command.setDuration(Number(duration));
+    }
+
+    command
       .output(output)
       .on("end", () => {
         console.log("✅ Video processed");
@@ -126,6 +141,19 @@ const processVideo = (input, output, duration = 10) => {
         reject(err);
       })
       .run();
+  });
+};
+
+const getVideoDuration = (inputPath) => {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(inputPath, (err, metadata) => {
+      if (err) {
+        resolve(10);
+        return;
+      }
+      const duration = Number(metadata?.format?.duration || 10);
+      resolve(Number.isFinite(duration) && duration > 0 ? duration : 10);
+    });
   });
 };
 
@@ -714,6 +742,360 @@ const transformVideoWithPrompt = async (inputPath, prompt, duration, frame) => {
   return inputPath;
 };
 
+const buildAtempoChain = (speed) => {
+  const factors = [];
+  let remaining = speed;
+
+  while (remaining < 0.5) {
+    factors.push(0.5);
+    remaining /= 0.5;
+  }
+  while (remaining > 2.0) {
+    factors.push(2.0);
+    remaining /= 2.0;
+  }
+
+  factors.push(Math.max(0.5, Math.min(2.0, remaining)));
+  return factors.map((f) => `atempo=${f.toFixed(3)}`).join(",");
+};
+
+const escapeDrawtext = (text = "") => {
+  return String(text)
+    .replace(/\\/g, "\\\\")
+    .replace(/:/g, "\\:")
+    .replace(/'/g, "\\'")
+    .replace(/,/g, "\\,")
+    .replace(/\[/g, "\\[")
+    .replace(/\]/g, "\\]");
+};
+
+const applyEffectsToVideo = async (inputPath, effects, durationSeconds = 10) => {
+  const selectedEffect = String(effects?.selectedEffect || "none");
+  const settings = effects?.settings || {};
+
+  if (!inputPath || selectedEffect === "none") {
+    console.log("ℹ️ [API-MEDIA] No deterministic effect applied. selectedEffect=", selectedEffect);
+    return inputPath;
+  }
+
+  const outputPath = makeTempFilePath("effect.mp4");
+  const videoFilters = [];
+  let audioFilter = "";
+
+  if (selectedEffect === "fade-in" || selectedEffect === "transition") {
+    const fadeDuration = Math.min(4, Math.max(2, Number(durationSeconds || 10) * 0.4));
+    const fadeOutStart = Math.max(0, Number(durationSeconds || 10) - fadeDuration);
+    videoFilters.push(`fade=t=in:st=0:d=${fadeDuration}`);
+    videoFilters.push(`fade=t=out:st=${fadeOutStart}:d=${fadeDuration}`);
+  }
+
+  if (selectedEffect === "blur") {
+    const blur = Math.max(0, Math.min(30, Number(settings.blurAmount) || 10));
+    videoFilters.push(`boxblur=${blur}:1`);
+  }
+
+  if (selectedEffect === "color-correction") {
+    const rawBrightness = Number(settings.brightness);
+    const rawContrast = Number(settings.contrast);
+    const rawSaturation = Number(settings.saturation);
+
+    const eqBrightness = Math.max(-1, Math.min(1, (Number.isFinite(rawBrightness) ? rawBrightness : 1) - 1));
+    const eqContrast = Math.max(0.1, Math.min(3, Number.isFinite(rawContrast) ? rawContrast : 1));
+    const eqSaturation = Math.max(0, Math.min(3, Number.isFinite(rawSaturation) ? rawSaturation : 1));
+
+    videoFilters.push(`eq=brightness=${eqBrightness.toFixed(3)}:contrast=${eqContrast.toFixed(3)}:saturation=${eqSaturation.toFixed(3)}`);
+  }
+
+  if (selectedEffect === "vintage") {
+    // Old-film look: lowered saturation + warm tone curve + temporal grain.
+    videoFilters.push("eq=saturation=0.72:contrast=0.93:brightness=0.03");
+    videoFilters.push("curves=r='0/0.08 0.60/0.52 1/0.92':g='0/0.06 0.70/0.56 1/0.86':b='0/0.05 0.80/0.52 1/0.76'");
+    videoFilters.push("noise=alls=14:allf=t+u");
+  }
+
+  if (selectedEffect === "black-white") {
+    videoFilters.push("hue=s=0");
+  }
+
+  if (selectedEffect === "cinematic") {
+    videoFilters.push("eq=contrast=1.4:brightness=0.08:saturation=1.2");
+    videoFilters.push("colorbalance=rs=0.08:gs=0.02:bs=-0.08");
+  }
+
+  if (selectedEffect === "warm") {
+    videoFilters.push("colorbalance=rs=0.12:gs=0.05:bs=-0.10");
+    videoFilters.push("eq=saturation=1.1:brightness=0.03");
+  }
+
+  if (selectedEffect === "cool") {
+    videoFilters.push("colorbalance=rs=-0.10:gs=-0.05:bs=0.14");
+    videoFilters.push("eq=saturation=1.05");
+  }
+
+  if (selectedEffect === "sepia") {
+    videoFilters.push("colorchannelmixer=.393:.769:.189:.349:.686:.168:.272:.534:.131");
+  }
+
+  if (selectedEffect === "hdr") {
+    videoFilters.push("eq=contrast=1.6:brightness=0.10:saturation=1.4");
+    videoFilters.push("unsharp=5:5:1.1:5:5:0.0");
+  }
+
+  if (selectedEffect === "vivid") {
+    videoFilters.push("eq=saturation=2.5:contrast=1.3:brightness=0.07");
+  }
+
+  if (selectedEffect === "soft-glow") {
+    videoFilters.push("gblur=sigma=1.2,eq=brightness=0.08:contrast=1.05");
+  }
+
+  if (selectedEffect === "retro-film") {
+    videoFilters.push("eq=saturation=0.92:contrast=1.06:brightness=0.02");
+    videoFilters.push("colorbalance=rs=-0.03:gs=0.05:bs=-0.08");
+    videoFilters.push("noise=alls=10:allf=t+u");
+    videoFilters.push("drawgrid=width=iw:height=4:thickness=1:color=black@0.08");
+  }
+
+  if (selectedEffect === "slow-motion") {
+    const speed = Math.max(0.1, Math.min(1, Number(settings.slowMotionSpeed) || 0.25));
+    const stretch = 1 / speed;
+    videoFilters.push(`setpts=${stretch.toFixed(3)}*PTS`);
+    // Keep as video-speed effect for robustness even when input has no audio stream.
+    audioFilter = "";
+  }
+
+  if (selectedEffect === "glitch") {
+    const intensity = Math.max(0, Math.min(3, Number(settings.glitchIntensity) || 1));
+    const noiseLevel = Math.round(10 + intensity * 20);
+    videoFilters.push(`noise=alls=${noiseLevel}:allf=t+u`);
+  }
+
+  if (selectedEffect === "zoom") {
+    videoFilters.push("scale=iw*1.2:ih*1.2,crop=iw/1.2:ih/1.2");
+  }
+
+  if (selectedEffect === "green-screen") {
+    // Use strong green suppression so the effect is visible even when true chroma scenes are absent.
+    videoFilters.push("lutrgb=g='val*0.15'");
+  }
+
+  if (selectedEffect === "text-animation") {
+    const text = escapeDrawtext(settings.animatedText || "YOUR TEXT HERE");
+    videoFilters.push(`drawtext=text='${text}':x=(w-text_w)/2:y=(h-text_h)/2:fontsize=64:fontcolor=white:shadowcolor=black@0.8:shadowx=2:shadowy=2:alpha='0.7+0.3*sin(2*PI*t)'`);
+  }
+
+  if (selectedEffect === "motion-tracking") {
+    // Approximate motion highlight effect with frame-difference style rendering.
+    videoFilters.push("tblend=all_mode=difference,eq=contrast=2.0:brightness=0.05:saturation=0");
+  }
+
+  if (!videoFilters.length && !audioFilter) {
+    console.log("ℹ️ [API-MEDIA] Effect skipped - no filters produced", {
+      selectedEffect,
+      hasAudioFilter: Boolean(audioFilter),
+    });
+    return inputPath;
+  }
+
+  console.log("🎚️ [API-MEDIA] Effect filter chain", {
+    selectedEffect,
+    videoFilters,
+    audioFilter: audioFilter || "none",
+  });
+
+  await new Promise((resolve, reject) => {
+    let command = ffmpeg().input(inputPath);
+
+    if (videoFilters.length) {
+      command = command.videoFilters(videoFilters);
+    }
+
+    if (audioFilter) {
+      command = command.audioFilters([audioFilter]);
+    }
+
+    command
+      .outputOptions(["-c:v libx264", "-pix_fmt yuv420p", "-c:a aac", "-movflags +faststart"])
+      .output(outputPath)
+      .on("end", () => {
+        console.log("✅ [API-MEDIA] Effect rendering complete:", selectedEffect);
+        resolve();
+      })
+      .on("error", (err) => {
+        console.error("❌ [API-MEDIA] Effect rendering failed:", err);
+        reject(err);
+      })
+      .run();
+  });
+
+  return outputPath;
+};
+
+const applyTextOverlayToVideo = async (inputPath, textOverlay) => {
+  const enabled = Boolean(textOverlay?.enabled);
+  const text = String(textOverlay?.text || "").trim();
+
+  if (!inputPath || !enabled || !text) {
+    return inputPath;
+  }
+
+  const size = Math.max(16, Math.min(180, Number(textOverlay?.fontSize) || 48));
+  const xPercent = Math.max(0, Math.min(100, Number(textOverlay?.position?.x) || 50));
+  const yPercent = Math.max(0, Math.min(100, Number(textOverlay?.position?.y) || 50));
+  const color = /^#[0-9a-fA-F]{6,8}$/.test(String(textOverlay?.color || ""))
+    ? String(textOverlay.color)
+    : "#ffffff";
+  const escapedText = escapeDrawtext(text);
+  const outputPath = makeTempFilePath("text-overlay.mp4");
+  const xExpr = `(w-text_w)*${(xPercent / 100).toFixed(4)}`;
+  const yExpr = `(h-text_h)*${(yPercent / 100).toFixed(4)}`;
+  const drawTextFilter = [
+    `drawtext=text='${escapedText}'`,
+    `fontsize=${size}`,
+    `font='${String(textOverlay?.fontFamily || "Arial").replace(/'/g, "")}'`,
+    `fontcolor=${color}`,
+    `x=${xExpr}`,
+    `y=${yExpr}`,
+    "shadowcolor=black@0.7",
+    "shadowx=2",
+    "shadowy=2",
+  ].join(":");
+
+  await new Promise((resolve, reject) => {
+    ffmpeg()
+      .input(inputPath)
+      .videoFilters([drawTextFilter])
+      .outputOptions(["-c:v libx264", "-pix_fmt yuv420p", "-c:a copy", "-movflags +faststart"])
+      .output(outputPath)
+      .on("end", () => {
+        console.log("✅ [API-MEDIA] Text overlay rendering complete");
+        resolve();
+      })
+      .on("error", (err) => {
+        console.error("❌ [API-MEDIA] Text overlay rendering failed:", err);
+        reject(err);
+      })
+      .run();
+  });
+
+  return outputPath;
+};
+
+const inferEffectFromPrompt = (promptText = "") => {
+  const p = String(promptText || "").toLowerCase();
+  if (!p) return "none";
+  if (p.includes("fade")) return "fade-in";
+  if (p.includes("blur")) return "blur";
+  if (p.includes("zoom")) return "zoom";
+  if (p.includes("black and white") || p.includes("black-white") || p.includes("bw") || p.includes("grayscale")) return "black-white";
+  if (p.includes("cinematic") || p.includes("movie look") || p.includes("teal orange")) return "cinematic";
+  if (p.includes("warm")) return "warm";
+  if (p.includes("cool")) return "cool";
+  if (p.includes("sepia")) return "sepia";
+  if (p.includes("hdr") || p.includes("high detail") || p.includes("high dynamic")) return "hdr";
+  if (p.includes("vivid") || p.includes("super saturated")) return "vivid";
+  if (p.includes("soft glow") || p.includes("bloom")) return "soft-glow";
+  if (p.includes("retro film") || p.includes("vhs") || p.includes("scanline")) return "retro-film";
+  if (p.includes("color") || p.includes("saturation") || p.includes("contrast") || p.includes("brightness")) return "color-correction";
+  if (p.includes("vintage") || p.includes("old film")) return "vintage";
+  if (p.includes("green screen") || p.includes("chroma")) return "green-screen";
+  if (p.includes("slow")) return "slow-motion";
+  if (p.includes("glitch")) return "glitch";
+  if (p.includes("transition")) return "transition";
+  if (p.includes("text")) return "text-animation";
+  if (p.includes("motion tracking")) return "motion-tracking";
+  return "none";
+};
+
+const mapClipTransitionToXfade = (transition = "none") => {
+  const t = String(transition || "none");
+  if (t === "cross-dissolve") return "dissolve";
+  if (t === "slide-left") return "slideleft";
+  if (t === "slide-right") return "slideright";
+  if (t === "dip-black") return "fadeblack";
+  if (t === "dip-white") return "fadewhite";
+  if (t === "zoom-transition") return "zoomin";
+  if (t === "blur-transition") return "hblur";
+  if (t === "spin-transition") return "radial";
+  if (t === "glitch-transition") return "pixelize";
+  if (t === "flash-transition") return "fadefast";
+  return "dissolve";
+};
+
+const mergeSegmentsWithTransitions = async (segmentPaths, transitions, outputPath) => {
+  if (!segmentPaths.length) {
+    throw new Error("No segments provided for merge");
+  }
+
+  if (segmentPaths.length === 1) {
+    await new Promise((resolve, reject) => {
+      ffmpeg(segmentPaths[0])
+        .outputOptions(["-c:v libx264", "-pix_fmt yuv420p", "-an"])
+        .output(outputPath)
+        .on("end", resolve)
+        .on("error", reject)
+        .run();
+    });
+    return;
+  }
+
+  const durations = [];
+  for (const p of segmentPaths) {
+    const d = await getVideoDuration(p);
+    durations.push(Math.max(0.5, Number(d) || 1));
+  }
+
+  let cumulative = durations[0];
+  let currentLabel = "[0:v]";
+  const chains = [];
+
+  for (let i = 1; i < segmentPaths.length; i++) {
+    // Transition is assigned on the outgoing clip (i-1) in editor UI.
+    // Keep fallback to [i] for backward compatibility with older payloads.
+    const transitionName = transitions?.[i - 1] || transitions?.[i] || "none";
+    const xfadeType = mapClipTransitionToXfade(transitionName);
+    const isNone = transitionName === "none";
+    const transitionDuration = isNone ? 0.001 : 0.8;
+    const offset = Math.max(0, cumulative - transitionDuration);
+    const outLabel = `[v${i}]`;
+
+    console.log("🎞️ [API-MEDIA] Merge transition", {
+      joinIndex: i - 1,
+      fromSegment: i - 1,
+      toSegment: i,
+      transitionName,
+      xfadeType,
+      offset,
+      transitionDuration,
+    });
+
+    chains.push(`${currentLabel}[${i}:v]xfade=transition=${xfadeType}:duration=${transitionDuration}:offset=${offset}${outLabel}`);
+    currentLabel = outLabel;
+    cumulative = cumulative + durations[i] - transitionDuration;
+  }
+
+  await new Promise((resolve, reject) => {
+    let command = ffmpeg();
+    segmentPaths.forEach((p) => {
+      command = command.input(p);
+    });
+
+    command
+      .complexFilter(chains)
+      .outputOptions(["-map", currentLabel, "-c:v libx264", "-pix_fmt yuv420p", "-an", "-movflags +faststart"])
+      .output(outputPath)
+      .on("end", () => {
+        console.log("✅ [API-MEDIA] Transition merge complete");
+        resolve();
+      })
+      .on("error", (err) => {
+        console.error("❌ [API-MEDIA] Transition merge failed:", err);
+        reject(err);
+      })
+      .run();
+  });
+};
+
 // ✅ RUNAWAY API FUNCTION
 const generateVideoWithRunaway = async (prompt, duration = 10, aspectRatio = "16:9") => {
   // MOCK MODE - for testing without valid API key
@@ -854,10 +1236,64 @@ const generateVideoWithRunaway = async (prompt, duration = 10, aspectRatio = "16
   }
 };
 
+const buildEffectPromptSnippet = (effects) => {
+  if (!effects || effects.selectedEffect === "none") {
+    return "";
+  }
+
+  const selected = String(effects.selectedEffect || "none");
+  const settings = effects.settings || {};
+
+  switch (selected) {
+    case "fade-in":
+      return "Add a soft fade-in transition at the beginning of the clip.";
+    case "blur":
+      return `Apply a blur effect with medium strength (${Number(settings.blurAmount) || 10}px feel).`;
+    case "zoom":
+      return "Apply a progressive cinematic zoom-in from start to end.";
+    case "color-correction":
+      return `Use color correction with brightness ${Number(settings.brightness) || 1}, contrast ${Number(settings.contrast) || 1}, saturation ${Number(settings.saturation) || 1}.`;
+    case "vintage":
+      return "Apply a vintage old-film treatment with reduced saturation, warm tones, and subtle grain.";
+    case "black-white":
+      return "Apply a true black-and-white monochrome grade.";
+    case "cinematic":
+      return "Apply a cinematic movie look with higher contrast and stylized color separation.";
+    case "warm":
+      return "Apply a warm color grade with boosted reds/yellows and softer blues.";
+    case "cool":
+      return "Apply a cool color grade with boosted blue tones and reduced reds.";
+    case "sepia":
+      return "Apply a sepia old-photo color transformation.";
+    case "hdr":
+      return "Apply an HDR-like punch with high contrast, brightness, and detail.";
+    case "vivid":
+      return "Apply a vivid high-saturation color grade.";
+    case "soft-glow":
+      return "Apply a soft glow bloom effect on highlights.";
+    case "retro-film":
+      return "Apply a retro VHS film look with grain and scanline texture.";
+    case "green-screen":
+      return "Apply a chroma key green-screen style where green background is removed.";
+    case "slow-motion":
+      return `Apply slow-motion pacing around ${(Number(settings.slowMotionSpeed) || 0.25).toFixed(2)}x speed style.`;
+    case "glitch":
+      return `Add a digital glitch effect with intensity ${Number(settings.glitchIntensity) || 1}.`;
+    case "transition":
+      return "Use a dissolve transition look from black into the scene.";
+    case "text-animation":
+      return `Overlay animated center text: \"${String(settings.animatedText || "YOUR TEXT HERE").slice(0, 120)}\".`;
+    case "motion-tracking":
+      return "Add motion-tracking style highlights that follow movement regions.";
+    default:
+      return "";
+  }
+};
+
 // ✅ MAIN ROUTE - API Video Generation
 // Accepts JSON with: { prompt, duration, frame }
 app.post("/generate", async (req, res) => {
-  const { prompt, duration, frame } = req.body;
+  const { prompt, duration, frame, effects } = req.body;
 
   try {
     console.log("📍 [API] Video generation request received");
@@ -868,8 +1304,13 @@ app.post("/generate", async (req, res) => {
     }
 
     const seconds = Math.max(3, Math.min(180, Number(duration) || 10));
+    const effectPromptSnippet = buildEffectPromptSnippet(effects);
+    const finalPrompt = [String(prompt || "").trim(), effectPromptSnippet].filter(Boolean).join(" ");
 
     console.log("📝 [API] Generation config: duration=" + seconds + "s, ratio=" + (frame || "16:9"));
+    if (effects?.selectedEffect && effects.selectedEffect !== "none") {
+      console.log("✨ [API] Requested effect:", effects.selectedEffect);
+    }
 
     // 🔥 STEP 1: GENERATE VIDEO WITH RUNAWAY API
     const fileName = `output-${Date.now()}.mp4`;
@@ -879,7 +1320,7 @@ app.post("/generate", async (req, res) => {
 
     // Use Runaway API for prompt-based generation
     console.log("🎬 [API] Starting video generation...");
-    videoUrl = await generateVideoWithRunaway(prompt, seconds, frame || "16:9");
+    videoUrl = await generateVideoWithRunaway(finalPrompt, seconds, frame || "16:9");
     console.log("✅ [API] Video generated successfully");
 
     // 🔥 STEP 2: UPLOAD TO SUPABASE STORAGE
@@ -924,10 +1365,64 @@ app.post(
   ]),
   async (req, res) => {
     try {
-      const { prompt, duration, frame } = req.body || {};
+      const { prompt, duration, frame, selectedEffect, selectedFilter, effectSettings, transitionPlan, editorSelections, quickEditMode } = req.body || {};
       const files = req.files || {};
       const mediaFiles = Array.isArray(files.media) ? files.media : [];
       const audioFiles = Array.isArray(files.audio) ? files.audio : [];
+      let parsedEffectSettings = {};
+      let parsedTransitionPlan = [];
+      let parsedEditorSelections = {};
+
+      try {
+        parsedEffectSettings = effectSettings ? JSON.parse(effectSettings) : {};
+      } catch (e) {
+        parsedEffectSettings = {};
+      }
+
+      try {
+        parsedTransitionPlan = transitionPlan ? JSON.parse(transitionPlan) : [];
+      } catch (e) {
+        parsedTransitionPlan = [];
+      }
+
+      try {
+        parsedEditorSelections = editorSelections ? JSON.parse(editorSelections) : {};
+      } catch (e) {
+        parsedEditorSelections = {};
+      }
+
+      const selectedEffectFromEditor = parsedEditorSelections?.effect?.selected;
+      const inferredEffect = inferEffectFromPrompt(prompt);
+      const resolvedSelectedEffect = selectedEffectFromEditor && selectedEffectFromEditor !== "none"
+        ? selectedEffectFromEditor
+        : selectedEffect && selectedEffect !== "none"
+        ? selectedEffect
+        : inferredEffect;
+
+      const resolvedEffectSettings =
+        parsedEditorSelections?.effect?.settings && Object.keys(parsedEditorSelections.effect.settings).length
+          ? parsedEditorSelections.effect.settings
+          : parsedEffectSettings;
+
+      const resolvedTransitionPlan = Array.isArray(parsedEditorSelections?.transitions?.transitionPlan)
+        ? parsedEditorSelections.transitions.transitionPlan
+        : parsedTransitionPlan;
+
+      const resolvedSelectedFilter =
+        parsedEditorSelections?.filters?.selected && parsedEditorSelections.filters.selected !== "none"
+          ? String(parsedEditorSelections.filters.selected)
+          : selectedFilter && selectedFilter !== "none"
+          ? String(selectedFilter)
+          : "none";
+
+      const resolvedTextOverlay = parsedEditorSelections?.textOverlay || { enabled: false };
+
+      const effects = {
+        selectedEffect: resolvedSelectedEffect || "none",
+        settings: resolvedEffectSettings,
+      };
+
+      const isQuickEditMode = String(quickEditMode || "").toLowerCase() === "true";
 
       console.log("📍 [API-MEDIA] Direct media generation request received");
 
@@ -941,7 +1436,7 @@ app.post(
         return res.status(400).json({ success: false, error: "At least one image or video file is required" });
       }
 
-      const seconds = Math.max(3, Math.min(180, Number(duration) || 10));
+      let seconds = Math.max(3, Math.min(180, Number(duration) || 10));
       const aspect = frame || "16:9";
 
       console.log("📝 [API-MEDIA] Config:", {
@@ -950,6 +1445,32 @@ app.post(
         frame: aspect,
         mediaCount: mediaFiles.length,
         hasAudio: audioFiles.length > 0,
+        quickEditMode: isQuickEditMode,
+        selectedEffectIncoming: selectedEffect || "none",
+        selectedFilterIncoming: selectedFilter || "none",
+        selectedEffectFromEditor: selectedEffectFromEditor || "none",
+        selectedEffectResolved: effects.selectedEffect,
+        selectedFilterResolved: resolvedSelectedFilter,
+      });
+
+      console.log("🛠️ [API-MEDIA] Editor selections:", {
+        effect: {
+          selected: parsedEditorSelections?.effect?.selected || "none",
+          enabled: Boolean(parsedEditorSelections?.effect?.enabled),
+          settings: parsedEditorSelections?.effect?.settings || {},
+        },
+        transitions: {
+          transitionPlan: parsedEditorSelections?.transitions?.transitionPlan || parsedTransitionPlan,
+          clipTransitions: parsedEditorSelections?.transitions?.clipTransitions || {},
+        },
+        filters: parsedEditorSelections?.filters || { enabled: false },
+        speed: parsedEditorSelections?.speed || { enabled: false },
+        trim: parsedEditorSelections?.trim || { enabled: false },
+        textOverlay: parsedEditorSelections?.textOverlay || { enabled: false },
+        rotate: parsedEditorSelections?.rotate || { enabled: false },
+        volume: parsedEditorSelections?.volume || { muted: false, level: 1 },
+        zoom: parsedEditorSelections?.zoom || { enabled: false, mode: "in", amount: 1 },
+        keyframe: parsedEditorSelections?.keyframe || { enabled: false, points: [] },
       });
 
       // Pick video or images as visual source
@@ -962,14 +1483,45 @@ app.post(
       }
 
       const fileName = `direct-media-${Date.now()}.mp4`;
-      const baseOutputPath = `outputs/${fileName}`;
+      const baseOutputPath = makeTempFilePath(fileName);
       let finalOutputPath = baseOutputPath;
       const generatedTempFiles = [];
 
       // STEP 1: Build base video from uploaded media
-      if (videoFile) {
+      if (isQuickEditMode && mediaFiles.length > 1) {
+        console.log("🎞️ [API-MEDIA] Quick Edit multi-clip mode with transitions");
+
+        const segmentPaths = [];
+        for (let i = 0; i < mediaFiles.length; i++) {
+          const media = mediaFiles[i];
+          const segmentPath = makeTempFilePath(`qclip-${i}.mp4`);
+
+          if (media.mimetype?.startsWith("video/")) {
+            await processVideo(media.path, segmentPath, null);
+          } else if (media.mimetype?.startsWith("image/")) {
+            await createVideoFromImage(media.path, segmentPath, 3, aspect);
+          }
+
+          segmentPaths.push(segmentPath);
+          generatedTempFiles.push(segmentPath);
+        }
+
+        const transitionsByIndex = mediaFiles.map((_, index) => {
+          const row = resolvedTransitionPlan.find((p) => Number(p.index) === index);
+          return row?.transition || "none";
+        });
+
+        await mergeSegmentsWithTransitions(segmentPaths, transitionsByIndex, baseOutputPath);
+        seconds = await getVideoDuration(baseOutputPath);
+      } else if (videoFile) {
         console.log("🎬 [API-MEDIA] Using uploaded video as source:", videoFile.originalname);
-        await processVideo(videoFile.path, baseOutputPath, seconds);
+        if (isQuickEditMode) {
+          // Preserve full uploaded video for Quick Edit.
+          await processVideo(videoFile.path, baseOutputPath, null);
+          seconds = await getVideoDuration(baseOutputPath);
+        } else {
+          await processVideo(videoFile.path, baseOutputPath, seconds);
+        }
       } else if (imageFiles.length === 1) {
         console.log("🖼️ [API-MEDIA] Using single uploaded image as source:", imageFiles[0].originalname);
         await createVideoFromImage(imageFiles[0].path, baseOutputPath, seconds, aspect);
@@ -977,18 +1529,18 @@ app.post(
         console.log("🖼️ [API-MEDIA] Building slideshow from", imageFiles.length, "images");
         const perImageSeconds = Math.max(1, Math.floor(seconds / imageFiles.length) || 1);
 
-        const segmentBaseNames = [];
+        const segmentPaths = [];
         for (let i = 0; i < imageFiles.length; i++) {
-          const baseName = `segment-${Date.now()}-${i}.mp4`;
-          const segmentPath = `outputs/${baseName}`;
+          const segmentPath = makeTempFilePath(`segment-${i}.mp4`);
           await createVideoFromImage(imageFiles[i].path, segmentPath, perImageSeconds, aspect);
-          segmentBaseNames.push(baseName);
+          segmentPaths.push(segmentPath);
           generatedTempFiles.push(segmentPath);
         }
 
-        const listFileName = `concat-${Date.now()}.txt`;
-        const listFilePath = `outputs/${listFileName}`;
-        const listContent = segmentBaseNames.map((name) => `file '${name}'`).join("\n");
+        const listFilePath = makeTempFilePath("concat.txt");
+        const listContent = segmentPaths
+          .map((p) => `file '${p.replace(/\\/g, "/").replace(/'/g, "'\\''")}'`)
+          .join("\n");
         fs.writeFileSync(listFilePath, listContent);
         generatedTempFiles.push(listFilePath);
 
@@ -1013,7 +1565,7 @@ app.post(
       // STEP 2: If audio is provided, merge it with the base video
       if (audioFiles.length) {
         const audioFile = audioFiles[0];
-        const audioOutputPath = `outputs/with-audio-${Date.now()}.mp4`;
+        const audioOutputPath = makeTempFilePath("with-audio.mp4");
 
         console.log("🎵 [API-MEDIA] Adding custom audio:", audioFile.originalname);
 
@@ -1035,11 +1587,12 @@ app.post(
         });
 
         finalOutputPath = audioOutputPath;
+        generatedTempFiles.push(audioOutputPath);
       }
 
       // STEP 3: If this is an images-only request, try full AI video generation with Veo.
       // We ignore the ffmpeg output and instead generate a new video from the images + prompt.
-      if (!videoFile && imageFiles.length > 0) {
+      if (!isQuickEditMode && !videoFile && imageFiles.length > 0) {
         try {
           console.log("🎨 [API-MEDIA] Using Veo for image-only AI video generation");
           const veoResult = await generateVeoVideoFromImages(prompt, seconds, aspect, imageFiles);
@@ -1061,6 +1614,7 @@ app.post(
             success: true,
             video: veoResult.publicUrl,
             storage: veoResult.storagePath,
+            appliedEffect: effects.selectedEffect || "none",
           });
         } catch (veoError) {
           console.error(
@@ -1070,8 +1624,46 @@ app.post(
         }
       }
 
-      // STEP 4: Optionally run AI transform using prompt + media (non-Veo path)
-      finalOutputPath = await transformVideoWithPrompt(finalOutputPath, prompt, seconds, aspect);
+      // STEP 4: Optional AI transform for non-quick-edit flows only.
+      if (!isQuickEditMode) {
+        finalOutputPath = await transformVideoWithPrompt(finalOutputPath, prompt, seconds, aspect);
+      }
+
+      // STEP 4.1: Apply deterministic post-processing effects for export output
+      console.log("🎛️ [API-MEDIA] Applying export post-processing", {
+        effect: effects.selectedEffect || "none",
+        filter: resolvedSelectedFilter,
+        textOverlay: Boolean(resolvedTextOverlay?.enabled && String(resolvedTextOverlay?.text || "").trim()),
+      });
+
+      const effectedPath = await applyEffectsToVideo(finalOutputPath, effects, seconds);
+      if (effectedPath !== finalOutputPath) {
+        generatedTempFiles.push(finalOutputPath);
+        finalOutputPath = effectedPath;
+      }
+
+      // Apply selected filter as an additional pass so filter + effect can both appear in exports.
+      if (resolvedSelectedFilter !== "none" && resolvedSelectedFilter !== effects.selectedEffect) {
+        console.log("🎨 [API-MEDIA] Applying dedicated filter pass", {
+          selectedFilter: resolvedSelectedFilter,
+          baseEffect: effects.selectedEffect || "none",
+        });
+        const filteredPath = await applyEffectsToVideo(
+          finalOutputPath,
+          { selectedEffect: resolvedSelectedFilter, settings: resolvedEffectSettings },
+          seconds,
+        );
+        if (filteredPath !== finalOutputPath) {
+          generatedTempFiles.push(finalOutputPath);
+          finalOutputPath = filteredPath;
+        }
+      }
+
+      const textOverlayPath = await applyTextOverlayToVideo(finalOutputPath, resolvedTextOverlay);
+      if (textOverlayPath !== finalOutputPath) {
+        generatedTempFiles.push(finalOutputPath);
+        finalOutputPath = textOverlayPath;
+      }
 
       // STEP 5: Upload final video to Supabase storage
       console.log("📤 [API-MEDIA] Uploading final video to storage...");
@@ -1084,6 +1676,7 @@ app.post(
         ...audioFiles.map((f) => f.path),
         ...generatedTempFiles,
         baseOutputPath !== finalOutputPath ? baseOutputPath : null,
+        finalOutputPath,
       ].filter(Boolean);
 
       tempPaths.forEach((p) => {
@@ -1094,6 +1687,8 @@ app.post(
         success: true,
         video: publicUrl,
         storage: storagePath,
+        appliedEffect: effects.selectedEffect || "none",
+        appliedFilter: resolvedSelectedFilter,
       });
     } catch (error) {
       const message = error?.message || "Media-based video generation failed.";

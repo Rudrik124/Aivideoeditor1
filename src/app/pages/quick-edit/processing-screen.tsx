@@ -23,6 +23,7 @@ export function QuickEditProcessingScreen() {
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isCanceled, setIsCanceled] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   const processingStarted = useRef(false);
 
   const steps = [
@@ -57,26 +58,75 @@ export function QuickEditProcessingScreen() {
 
     const runProcessing = async () => {
       try {
+        const mediaItems = Array.isArray(editConfig.mediaItems) ? editConfig.mediaItems : [];
+        const audioTracks = Array.isArray(editConfig.audioTracks) ? editConfig.audioTracks : [];
+
+        if (mediaItems.length === 0) {
+          setError("No media found for Quick Edit. Please upload media and try again.");
+          return;
+        }
+
         // Construct a logical prompt for the backend AI
         let aiPrompt = `[QuickAI Mode] Style: ${editConfig.selectedStyle}. `;
         if (editConfig.prompt) aiPrompt += `User Instructions: ${editConfig.prompt}. `;
+
+        if (editConfig.selectedEffect && editConfig.selectedEffect !== "none") {
+          aiPrompt += `Apply video effect: ${editConfig.selectedEffect}. `;
+        }
         
         // Add specific modifiers based on toggles
         if (editConfig.aiOptions.subtitles) aiPrompt += "Include dynamic subtitles/captions. ";
         if (editConfig.aiOptions.autoCuts) aiPrompt += "Apply smart cuts to remove long pauses. ";
         if (editConfig.aiOptions.faceTracking) aiPrompt += "Focus on facial expressions and tracking. ";
-        
-        const response = await fetch("http://localhost:5000/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: aiPrompt,
-            duration: 10,
-            frame: editConfig.aspectRatio
-          })
+
+        const formData = new FormData();
+        formData.append("prompt", aiPrompt);
+        formData.append("duration", "10");
+        formData.append("frame", editConfig.aspectRatio || "16:9");
+        formData.append("selectedEffect", editConfig.selectedEffect || "none");
+        formData.append(
+          "selectedFilter",
+          editConfig.selectedFilter || editConfig.editorSelections?.filters?.selected || "none",
+        );
+        formData.append("effectSettings", JSON.stringify(editConfig.effectSettings || {}));
+        formData.append("transitionPlan", JSON.stringify(editConfig.transitionPlan || []));
+        formData.append("editorSelections", JSON.stringify(editConfig.editorSelections || {}));
+        formData.append("quickEditMode", "true");
+
+        mediaItems.forEach((item: any) => {
+          if (item?.file instanceof File) {
+            formData.append("media", item.file, item.file.name || "media-file");
+          }
         });
 
-        const data = await response.json();
+        const firstAudioWithFile = audioTracks.find((track: any) => track?.file instanceof File);
+        if (firstAudioWithFile?.file) {
+          formData.append("audio", firstAudioWithFile.file, firstAudioWithFile.file.name || "audio-file");
+        }
+
+        const controller = new AbortController();
+        const timeoutMs = 180000; // 3 minutes
+        const timeoutHandle = window.setTimeout(() => controller.abort(), timeoutMs);
+
+        const response = await fetch("http://localhost:5000/generate-from-media", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
+
+        window.clearTimeout(timeoutHandle);
+
+        let data: any = null;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+
+        if (!response.ok) {
+          const apiError = data?.error || `Server error (${response.status}).`;
+          throw new Error(apiError);
+        }
         
         if (data.success && !isCanceled) {
           setProgress(100);
@@ -101,7 +151,11 @@ export function QuickEditProcessingScreen() {
         }
       } catch (err: any) {
         if (!isCanceled) {
-          setError("Connection lost. Please ensure the local Studio Engine is running.");
+          if (err?.name === "AbortError") {
+            setError("Processing timed out. Try again with fewer clips/effects or retry once.");
+          } else {
+            setError(err?.message || "Connection lost. Please ensure the local Studio Engine is running.");
+          }
         }
       }
     };
@@ -112,7 +166,7 @@ export function QuickEditProcessingScreen() {
       clearInterval(timer);
       clearInterval(stepTimer);
     };
-  }, [editConfig, navigate, isCanceled]);
+  }, [editConfig, navigate, isCanceled, retryToken]);
 
   const handleCancel = () => {
     setIsCanceled(true);
@@ -124,6 +178,7 @@ export function QuickEditProcessingScreen() {
     processingStarted.current = false;
     setProgress(0);
     setCurrentStep(0);
+    setRetryToken((prev) => prev + 1);
   };
 
   if (error) {
