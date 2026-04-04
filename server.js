@@ -74,12 +74,20 @@ console.log(
 );
 
 const supabaseKey = serviceRoleKey || process.env.SUPABASE_ANON_KEY || "sb_publishable_dATLFlK6takFJUF3dIGMuw_uFrcm0oI";
-// Default to the actual image-to-video bucket if env is missing
-const supabaseBucket = (process.env.SUPABASE_STORAGE_BUCKET || "Image-to-video_function").trim();
+// Bucket mapping by function.
+const SUPABASE_BUCKETS = {
+  AI_GENERATED: (process.env.SUPABASE_BUCKET_AI_GENERATED || "AI_Generated_Video").trim(),
+  IMAGE_TO_VIDEO: (process.env.SUPABASE_BUCKET_IMAGE_TO_VIDEO || "Image-to-video_function").trim(),
+  REFERENCE_VIDEO: (process.env.SUPABASE_BUCKET_REFERENCE_VIDEO || "Reference_video_function").trim(),
+  QUICK_EDITS: (process.env.SUPABASE_BUCKET_QUICK_EDITS || "quick_edits").trim(),
+};
+
+const supabaseBucket = (process.env.SUPABASE_STORAGE_BUCKET || SUPABASE_BUCKETS.IMAGE_TO_VIDEO).trim();
 console.log("🔗 Supabase URL:", supabaseUrl);
 console.log("🔗 Supabase key prefix:", supabaseKey ? supabaseKey.slice(0, 10) + "..." : "<none>");
 const supabase = createClient(supabaseUrl, supabaseKey);
 console.log("🔗 Supabase bucket configured:", supabaseBucket);
+console.log("🔗 Supabase bucket map:", SUPABASE_BUCKETS);
 
 // Optional: log available buckets at startup for debugging
 supabase.storage
@@ -244,7 +252,7 @@ const extractOutputUrl = (predictionOutput) => {
   return "";
 };
 
-const uploadVideoUrlToSupabase = async (videoUrl, fileName) => {
+const uploadVideoUrlToSupabase = async (videoUrl, fileName, bucketName = supabaseBucket) => {
   const videoResponse = await fetch(videoUrl);
   if (!videoResponse.ok) {
     throw new Error(`Unable to download generated video: ${videoResponse.status}`);
@@ -255,7 +263,7 @@ const uploadVideoUrlToSupabase = async (videoUrl, fileName) => {
   const storagePath = `generated/${Date.now()}-${fileName}`;
 
   const { error } = await supabase.storage
-    .from(supabaseBucket)
+    .from(bucketName)
     .upload(storagePath, fileBuffer, {
       contentType: "video/mp4",
       upsert: true,
@@ -279,16 +287,16 @@ const uploadVideoUrlToSupabase = async (videoUrl, fileName) => {
     }
   }
 
-  const { data } = supabase.storage.from(supabaseBucket).getPublicUrl(storagePath);
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
   return { publicUrl: data.publicUrl, storagePath };
 };
 
-const uploadToSupabase = async (filePath, fileName) => {
+const uploadToSupabase = async (filePath, fileName, bucketName = supabaseBucket) => {
   const fileBuffer = fs.readFileSync(filePath);
   const storagePath = `generated/${Date.now()}-${fileName}`;
 
   const { error } = await supabase.storage
-    .from(supabaseBucket)
+    .from(bucketName)
     .upload(storagePath, fileBuffer, {
       contentType: "video/mp4",
       upsert: true,
@@ -311,7 +319,27 @@ const uploadToSupabase = async (filePath, fileName) => {
     }
   }
 
-  const { data } = supabase.storage.from(supabaseBucket).getPublicUrl(storagePath);
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
+  return { publicUrl: data.publicUrl, storagePath };
+};
+
+const uploadReferenceMediaToSupabase = async (sourcePath, originalName) => {
+  const fileBuffer = fs.readFileSync(sourcePath);
+  const safeName = String(originalName || "reference.bin").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `reference/${Date.now()}-${safeName}`;
+
+  const { error } = await supabase.storage
+    .from(SUPABASE_BUCKETS.REFERENCE_VIDEO)
+    .upload(storagePath, fileBuffer, {
+      contentType: "video/mp4",
+      upsert: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  const { data } = supabase.storage.from(SUPABASE_BUCKETS.REFERENCE_VIDEO).getPublicUrl(storagePath);
   return { publicUrl: data.publicUrl, storagePath };
 };
 
@@ -406,7 +434,13 @@ const downloadGeminiFileToBuffer = async (downloadUri) => {
 // If the requested duration is longer than Veo's max per clip, this will
 // generate multiple clips (4/6/8 seconds each) and concatenate them
 // with ffmpeg before uploading a single final video to Supabase.
-const generateVeoVideoFromImages = async (prompt, durationSeconds, aspectRatio, imageFiles) => {
+const generateVeoVideoFromImages = async (
+  prompt,
+  durationSeconds,
+  aspectRatio,
+  imageFiles,
+  targetBucket = SUPABASE_BUCKETS.IMAGE_TO_VIDEO,
+) => {
   if (!geminiApiKey) {
     throw new Error("GEMINI_API_KEY is not set for Veo generation");
   }
@@ -676,7 +710,7 @@ const generateVeoVideoFromImages = async (prompt, durationSeconds, aspectRatio, 
 
   // Upload final video to Supabase storage
   const fileName = `veo-${Date.now()}.mp4`;
-  const { publicUrl, storagePath } = await uploadToSupabase(finalOutputPath, fileName);
+  const { publicUrl, storagePath } = await uploadToSupabase(finalOutputPath, fileName, targetBucket);
   console.log("✅ [Veo] Final Veo video stored in Supabase:", storagePath);
 
   // Clean up temporary files
@@ -1557,7 +1591,11 @@ app.post("/generate", async (req, res) => {
 
     try {
       console.log("📤 [API] Uploading to storage...");
-      const uploadResult = await uploadVideoUrlToSupabase(videoUrl, fileName);
+      const uploadResult = await uploadVideoUrlToSupabase(
+        videoUrl,
+        fileName,
+        SUPABASE_BUCKETS.AI_GENERATED,
+      );
       videoUrl = uploadResult.publicUrl;
       storage = uploadResult.storagePath;
       console.log("✅ [API] Storage upload complete");
@@ -1808,6 +1846,7 @@ app.post(
         mediaCount: mediaFiles.length,
         hasAudio: audioFiles.length > 0,
         quickEditMode: isQuickEditMode,
+        outputBucket,
         selectedEffectIncoming: selectedEffect || "none",
         selectedFilterIncoming: selectedFilter || "none",
         selectedEffectFromEditor: selectedEffectFromEditor || "none",
@@ -1856,9 +1895,30 @@ app.post(
       const videoFile = mediaFiles.find((f) => f.mimetype?.startsWith("video/"));
       const imageFiles = mediaFiles.filter((f) => f.mimetype?.startsWith("image/"));
 
+      const outputBucket = isQuickEditMode
+        ? SUPABASE_BUCKETS.QUICK_EDITS
+        : !videoFile && imageFiles.length > 0
+        ? SUPABASE_BUCKETS.IMAGE_TO_VIDEO
+        : SUPABASE_BUCKETS.AI_GENERATED;
+
       if (!videoFile && !imageFiles.length) {
         console.error("❌ [API-MEDIA] Unsupported media types");
         return res.status(400).json({ success: false, error: "Upload at least one image or video file" });
+      }
+
+      // Store uploaded reference videos in dedicated reference bucket.
+      const referenceVideoFiles = mediaFiles.filter((f) => f.mimetype?.startsWith("video/"));
+      if (referenceVideoFiles.length > 0) {
+        await Promise.allSettled(
+          referenceVideoFiles.map(async (file) => {
+            try {
+              const uploadedRef = await uploadReferenceMediaToSupabase(file.path, file.originalname);
+              console.log("📚 [API-MEDIA] Reference video stored:", uploadedRef.storagePath);
+            } catch (refErr) {
+              console.warn("⚠️ [API-MEDIA] Reference video upload failed:", file.originalname, refErr?.message || refErr);
+            }
+          }),
+        );
       }
 
       const fileName = `direct-media-${Date.now()}.mp4`;
@@ -1994,7 +2054,13 @@ app.post(
       if (!isQuickEditMode && !videoFile && imageFiles.length > 0) {
         try {
           console.log("🎨 [API-MEDIA] Using Veo for image-only AI video generation");
-          const veoResult = await generateVeoVideoFromImages(prompt, seconds, aspect, imageFiles);
+          const veoResult = await generateVeoVideoFromImages(
+            prompt,
+            seconds,
+            aspect,
+            imageFiles,
+            SUPABASE_BUCKETS.IMAGE_TO_VIDEO,
+          );
 
           // Clean up temporary files (best-effort)
           const tempPathsForVeo = [
@@ -2073,7 +2139,7 @@ app.post(
 
       // STEP 5: Upload final video to Supabase storage
       console.log("📤 [API-MEDIA] Uploading final video to storage...");
-      const { publicUrl, storagePath } = await uploadToSupabase(finalOutputPath, fileName);
+      const { publicUrl, storagePath } = await uploadToSupabase(finalOutputPath, fileName, outputBucket);
       console.log("✅ [API-MEDIA] Storage upload complete");
 
       // STEP 6: Clean up temporary files (best-effort)
