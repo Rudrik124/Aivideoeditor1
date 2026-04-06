@@ -187,6 +187,98 @@ const getVideoDuration = (inputPath) => {
   });
 };
 
+// ✅ Trim/merge audio to match a given video
+const mergeVideoWithTrimmedAudio = async (videoPath, audioPath) => {
+  if (!videoPath || !audioPath) return videoPath;
+
+  const videoDuration = await getVideoDuration(videoPath);
+  const trimmedAudioPath = makeTempFilePath("trimmed-audio.mp4");
+
+  // First, trim the audio to the video duration so that if the
+  // audio is longer (e.g. 10s vs 5s video), only the first part
+  // is kept and the rest is discarded.
+  await new Promise((resolve, reject) => {
+    ffmpeg(audioPath)
+      .outputOptions([`-t ${videoDuration.toFixed(3)}`])
+      .output(trimmedAudioPath)
+      .on("end", () => resolve())
+      .on("error", (err) => {
+        console.error("❌ [AUDIO] Error trimming audio:", err);
+        reject(err);
+      })
+      .run();
+  });
+
+  const outputPath = makeTempFilePath("with-audio.mp4");
+
+  await new Promise((resolve, reject) => {
+    ffmpeg()
+      .input(videoPath)
+      .input(trimmedAudioPath)
+      .outputOptions(["-c:v copy", "-c:a aac"])
+      .output(outputPath)
+      .on("end", () => {
+        console.log("✅ [AUDIO] Audio merged with video (trimmed to duration)");
+        resolve();
+      })
+      .on("error", (err) => {
+        console.error("❌ [AUDIO] Error merging audio:", err);
+        reject(err);
+      })
+      .run();
+  });
+
+  // Best-effort cleanup of the temporary trimmed audio file
+  fs.unlink(trimmedAudioPath, () => {});
+
+  return outputPath;
+};
+
+// ✅ Adjust a generated video to match the user-selected frame
+// (aspect ratio) after the API has produced it.
+const adjustVideoToFrame = async (inputPath, frame) => {
+  if (!inputPath) return inputPath;
+
+  const resolutionMap = {
+    "16:9": "1920x1080",
+    "9:16": "1080x1920",
+    "1:1": "1080x1080",
+    "4:3": "1440x1080",
+    "3:4": "1080x1440",
+    "4:5": "1080x1350",
+    "2.35:1": "1920x817",
+  };
+
+  const size = resolutionMap[frame] || resolutionMap["16:9"];
+  if (!size) return inputPath;
+
+  const [wStr, hStr] = size.split("x");
+  const w = Number(wStr) || 1920;
+  const h = Number(hStr) || 1080;
+
+  const outputPath = makeTempFilePath("frame-adjusted.mp4");
+
+  await new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .videoFilters(
+        `scale=${w}:${h}:force_original_aspect_ratio=cover,crop=${w}:${h}`,
+      )
+      .outputOptions(["-c:a copy"])
+      .output(outputPath)
+      .on("end", () => {
+        console.log("✅ [FRAME] Adjusted video to frame", frame, `(${w}x${h})`);
+        resolve();
+      })
+      .on("error", (err) => {
+        console.error("❌ [FRAME] Error adjusting frame:", err);
+        reject(err);
+      })
+      .run();
+  });
+
+  return outputPath;
+};
+
 // ✅ IMAGE → VIDEO FUNCTION (loops single image for given duration)
 const createVideoFromImage = (imagePath, outputPath, duration = 10, frame = "16:9") => {
   const resolutionMap = {
@@ -431,15 +523,17 @@ const downloadGeminiFileToBuffer = async (downloadUri) => {
 
 // ✅ Use Veo (Gemini Gen Media) to generate a video from images + prompt
 // This is used ONLY when the user uploaded images (no videos).
-// If the requested duration is longer than Veo's max per clip, this will
-// generate multiple clips (4/6/8 seconds each) and concatenate them
-// with ffmpeg before uploading a single final video to Supabase.
+// The API can only generate short clips (below ~10 seconds), so we
+// split the requested duration into multiple segments (e.g. 6+6+6+6+6
+// for 30 seconds), generate each segment, then concatenate them locally.
+//
+// This helper now returns a local video path so the caller can
+// optionally merge audio and then upload the final file to Supabase.
 const generateVeoVideoFromImages = async (
   prompt,
   durationSeconds,
   aspectRatio,
   imageFiles,
-  targetBucket = SUPABASE_BUCKETS.IMAGE_TO_VIDEO,
 ) => {
   if (!geminiApiKey) {
     throw new Error("GEMINI_API_KEY is not set for Veo generation");
@@ -449,20 +543,23 @@ const generateVeoVideoFromImages = async (
   const totalSec = Math.max(4, Math.min(180, totalSecRaw));
   const aspect = aspectRatio || "16:9";
 
-  // Decide how to split the requested duration into Veo-supported clip lengths.
-  // Veo supports 4, 6, or 8 seconds; we approximate the total.
+  // Split duration into API-friendly segments (<= 10s each).
+  // We bias towards ~6 second chunks so that, for example,
+  // 30 seconds becomes 6+6+6+6+6.
+  const MAX_SEGMENT = 10;
+  const PREFERRED_SEGMENT = 6;
+
   const segmentDurations = [];
   let remaining = totalSec;
 
-  while (remaining > 8) {
-    segmentDurations.push(8);
-    remaining -= 8;
+  while (remaining > MAX_SEGMENT) {
+    segmentDurations.push(PREFERRED_SEGMENT);
+    remaining -= PREFERRED_SEGMENT;
   }
 
   if (remaining > 0) {
-    if (remaining <= 4) segmentDurations.push(4);
-    else if (remaining <= 6) segmentDurations.push(6);
-    else segmentDurations.push(8);
+    const last = Math.max(3, Math.min(MAX_SEGMENT, remaining));
+    segmentDurations.push(last);
   }
 
   console.log("🎬 [Veo] Target duration split into segments:", segmentDurations);
@@ -708,19 +805,17 @@ const generateVeoVideoFromImages = async (
     generatedTempFiles.push(concatenatedPath);
   }
 
-  // Upload final video to Supabase storage
-  const fileName = `veo-${Date.now()}.mp4`;
-  const { publicUrl, storagePath } = await uploadToSupabase(finalOutputPath, fileName, targetBucket);
-  console.log("✅ [Veo] Final Veo video stored in Supabase:", storagePath);
-
-  // Clean up temporary files
+  // Clean up only intermediate segment files; keep the final output
+  // so the caller can merge audio and upload as needed.
   generatedTempFiles.forEach((p) => {
-    fs.unlink(p, () => {});
+    if (p !== finalOutputPath) {
+      fs.unlink(p, () => {});
+    }
   });
 
   return {
-    publicUrl,
-    storagePath,
+    localPath: finalOutputPath,
+    durationSeconds: totalSec,
   };
 };
 
@@ -2021,36 +2116,8 @@ app.post(
         });
       }
 
-      // STEP 2: If audio is provided, merge it with the base video
-      if (audioFiles.length) {
-        const audioFile = audioFiles[0];
-        const audioOutputPath = makeTempFilePath("with-audio.mp4");
-
-        console.log("🎵 [API-MEDIA] Adding custom audio:", audioFile.originalname);
-
-        await new Promise((resolve, reject) => {
-          ffmpeg()
-            .input(baseOutputPath)
-            .input(audioFile.path)
-            .outputOptions(["-c:v copy", "-c:a aac", "-shortest"])
-            .output(audioOutputPath)
-            .on("end", () => {
-              console.log("✅ [API-MEDIA] Audio merged with video");
-              resolve();
-            })
-            .on("error", (err) => {
-              console.error("❌ [API-MEDIA] Error merging audio:", err);
-              reject(err);
-            })
-            .run();
-        });
-
-        finalOutputPath = audioOutputPath;
-        generatedTempFiles.push(audioOutputPath);
-      }
-
-      // STEP 3: If this is an images-only request, try full AI video generation with Veo.
-      // We ignore the ffmpeg output and instead generate a new video from the images + prompt.
+      // STEP 2: If this is an images-only request, try full AI video generation with Veo.
+      // We ignore the ffmpeg output and instead generate a new AI video from the images + prompt.
       if (!isQuickEditMode && !videoFile && imageFiles.length > 0) {
         try {
           console.log("🎨 [API-MEDIA] Using Veo for image-only AI video generation");
@@ -2059,6 +2126,46 @@ app.post(
             seconds,
             aspect,
             imageFiles,
+          );
+
+          let veoOutputPath = veoResult.localPath;
+
+          // Merge audio (if provided) after AI video generation, trimming
+          // audio to match the selected video duration. Any failure here
+          // should log and fall back to the video without custom audio
+          // instead of failing the whole request.
+          if (audioFiles.length && veoOutputPath) {
+            const audioFile = audioFiles[0];
+            try {
+              console.log("🎵 [API-MEDIA] Merging custom audio with Veo output:", audioFile.originalname);
+              const withAudioPath = await mergeVideoWithTrimmedAudio(veoOutputPath, audioFile.path);
+              if (withAudioPath && withAudioPath !== veoOutputPath) {
+                generatedTempFiles.push(veoOutputPath);
+                veoOutputPath = withAudioPath;
+              }
+            } catch (audioErr) {
+              console.warn("⚠️ [API-MEDIA] Audio merge failed, continuing without custom audio:", audioErr?.message || audioErr);
+            }
+          }
+
+          // Adjust the generated video to the user-selected frame ratio
+          // (e.g., if the API only supports a couple of ratios). If this
+          // step fails we still return the unadjusted video.
+          try {
+            const frameAdjustedPath = await adjustVideoToFrame(veoOutputPath, aspect);
+            if (frameAdjustedPath && frameAdjustedPath !== veoOutputPath) {
+              generatedTempFiles.push(veoOutputPath);
+              veoOutputPath = frameAdjustedPath;
+            }
+          } catch (frameErr) {
+            console.warn("⚠️ [API-MEDIA] Frame adjustment failed, returning original Veo output:", frameErr?.message || frameErr);
+          }
+
+          // Upload the final Veo-based video into the IMAGE_TO_VIDEO bucket.
+          console.log("📤 [API-MEDIA] Uploading Veo output to storage...");
+          const uploadResult = await uploadToSupabase(
+            veoOutputPath,
+            fileName,
             SUPABASE_BUCKETS.IMAGE_TO_VIDEO,
           );
 
@@ -2068,7 +2175,7 @@ app.post(
             ...audioFiles.map((f) => f.path),
             ...generatedTempFiles,
             baseOutputPath !== finalOutputPath ? baseOutputPath : null,
-            finalOutputPath,
+            veoOutputPath,
           ].filter(Boolean);
 
           tempPathsForVeo.forEach((p) => {
@@ -2077,8 +2184,8 @@ app.post(
 
           return res.json({
             success: true,
-            video: veoResult.publicUrl,
-            storage: veoResult.storagePath,
+            video: uploadResult.publicUrl,
+            storage: uploadResult.storagePath,
             appliedEffect: effects.selectedEffect || "none",
           });
         } catch (veoError) {
