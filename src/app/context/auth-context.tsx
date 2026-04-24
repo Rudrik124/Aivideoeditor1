@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, AuthChangeEvent } from "@supabase/supabase-js";
-import { supabase } from "../../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../../lib/supabase";
 
 interface AuthContextType {
   session: Session | null;
@@ -16,6 +16,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setIsLoading(false);
+      return;
+    }
+
     // Check if user is already logged in
     const checkSession = async () => {
       try {
@@ -43,6 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = async () => {
+    if (!supabase) {
+      setSession(null);
+      return;
+    }
+
     try {
       await supabase.auth.signOut();
       setSession(null);

@@ -166,6 +166,8 @@ export function QuickEditProcessingScreen() {
           String(editConfig.editorSelections?.keyframe?.amount ?? 1.25),
         );
         formData.append("quickEditMode", "true");
+        formData.append("tool", "quick-edit");
+        formData.append("flow", "quick-edit");
 
         mediaItems.forEach((item: any) => {
           if (item?.file instanceof File) {
@@ -185,6 +187,9 @@ export function QuickEditProcessingScreen() {
         const response = await fetch("http://localhost:5000/generate-from-media", {
           method: "POST",
           body: formData,
+          headers: {
+            "x-vireonix-flow": "quick-edit",
+          },
           signal: controller.signal,
         });
 

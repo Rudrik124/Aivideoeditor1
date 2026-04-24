@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { supabase } from "../../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../../lib/supabase";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -8,6 +8,12 @@ export function AuthCallbackPage() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        if (!isSupabaseConfigured || !supabase) {
+          console.error("Supabase frontend env is not configured.");
+          navigate("/");
+          return;
+        }
+
         // Get the session from the URL hash or query params
         const { data, error } = await supabase.auth.getSession();
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "../../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../../lib/supabase";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -52,7 +52,19 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
     setMessage({ text, type });
   };
 
+  const ensureSupabaseConfigured = () => {
+    if (!isSupabaseConfigured || !supabase) {
+      showMessage("Login is unavailable: missing Supabase frontend env (SUPABASE_ANON_KEY).", "error");
+      return false;
+    }
+    return true;
+  };
+
   const handleGoogleSignIn = async () => {
+    if (!ensureSupabaseConfigured()) {
+      return;
+    }
+
     try {
       setIsLoading(true);
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -73,6 +85,10 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
   };
 
   const handleForgotPassword = async () => {
+    if (!ensureSupabaseConfigured()) {
+      return;
+    }
+
     const trimmedEmail = email.trim();
     if (!isValidEmail(trimmedEmail)) {
       showMessage("Enter your email above first to reset your password.", "error");
@@ -100,6 +116,10 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage({ text: "", type: "" });
+
+    if (!ensureSupabaseConfigured()) {
+      return;
+    }
 
     const trimmedEmail = email.trim();
     const trimmedPassword = password;

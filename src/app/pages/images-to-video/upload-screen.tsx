@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, AudioLines, Image as ImageIcon, Upload, Film, Settings, 
@@ -133,15 +133,15 @@ export function ImagesToVideoUploadScreen() {
     { label: "2.35:1", width: 36, height: 15 },
   ];
 
-  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files).filter(
-      (file) => file.type.startsWith("image/") || file.type.startsWith("video/")
+      (file: File) => file.type.startsWith("image/") || file.type.startsWith("video/")
     );
     setMediaFiles((prev) => [...prev, ...files]);
   };
 
-  const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAudioChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setAudioFile(file);

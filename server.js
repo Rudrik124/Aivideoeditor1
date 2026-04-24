@@ -4,6 +4,7 @@ import multer from "multer";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import { createClient } from "@supabase/supabase-js";
+import { fal } from "@fal-ai/client";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -11,6 +12,11 @@ import dotenv from "dotenv";
 
 // Load environment variables (including GEMINI_API_KEY and Supabase keys)
 dotenv.config({ path: "./src/.env", override: true });
+
+const falApiKey = process.env.FAL_API_KEY || "";
+fal.config({
+  credentials: falApiKey,
+});
 
 const app = express();
 
@@ -39,27 +45,9 @@ const makeTempFilePath = (suffix) => {
   return path.join(tempWorkDir, `${unique}-${safeSuffix}`);
 };
 
-// ✅ INIT SUPABASE
-const supabaseUrl = process.env.SUPABASE_URL || "https://cowdbhlpxzrlcbsxrvwh.supabase.co";
-
-// Work around dotenv not loading SUPABASE_SERVICE_ROLE_KEY by also
-// reading it directly from src/.env if needed.
-let serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-if (!serviceRoleKey) {
-  try {
-    const envText = fs.readFileSync("src/.env", "utf8");
-    console.log("🔍 Raw src/.env length:", envText.length);
-    console.log("🔍 src/.env has SUPABASE_SERVICE_ROLE_KEY:", envText.includes("SUPABASE_SERVICE_ROLE_KEY"));
-    const match = envText.match(/SUPABASE_SERVICE_ROLE_KEY[^=]*=\s*(.*)/);
-    if (match && match[1]) {
-      // Remove optional surrounding quotes and whitespace
-      const raw = match[1].trim();
-      serviceRoleKey = raw.replace(/^"|"$/g, "");
-    }
-  } catch (e) {
-    // ignore, will fall back to anon key
-  }
-}
+// ✅ INIT SUPABASE (env-only, no hardcoded secrets)
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 console.log("🔍 Parsed service role key length:", serviceRoleKey ? serviceRoleKey.length : 0);
 console.log(
@@ -73,7 +61,10 @@ console.log(
     : "<none>",
 );
 
-const supabaseKey = serviceRoleKey || process.env.SUPABASE_ANON_KEY || "sb_publishable_dATLFlK6takFJUF3dIGMuw_uFrcm0oI";
+const supabaseKey = serviceRoleKey || process.env.SUPABASE_ANON_KEY || "";
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY in environment.");
+}
 // Bucket mapping by function.
 const SUPABASE_BUCKETS = {
   AI_GENERATED: (process.env.SUPABASE_BUCKET_AI_GENERATED || "AI_Generated_Video").trim(),
@@ -107,9 +98,15 @@ supabase.storage
   });
 
 // ✅ INIT RUNAWAY API
-const runawayApiKey = process.env.RUNAWAY_API_KEY || "key_0fc65dd204ead9462bff36bf4b74943618729c36bc8318c788454c72a3d9a5d2e7cc2bdaa5f105e163b7cf2b3b6154d171261ba204aff1bf033e569f9322ce5d";
-const runawayApiUrl = "https://api.runwayml.com/v1";
+const runawayApiKey = process.env.RUNAWAY_API_KEY || process.env.RUNWAY_API_KEY || "";
+const runawayApiUrl = process.env.RUNAWAY_API_URL || "https://api.runwayml.com/v1";
 const USE_MOCK_API = process.env.USE_MOCK_API === "true"; // Set USE_MOCK_API=true for testing without valid API key
+
+// ✅ INIT NOVITA API (optional provider for text-to-video)
+const novitaApiKey = process.env.NOVITA_API_KEY || "";
+const novitaApiUrl = process.env.NOVITA_API_URL || "";
+const videoProvider = (process.env.VIDEO_PROVIDER || "runway").toLowerCase();
+const novitaModelName = process.env.NOVITA_MODEL_NAME || "";
 
 // ✅ INIT GEMINI (used as understanding layer for media flows)
 const geminiApiKey = process.env.GEMINI_API_KEY || "";
@@ -121,7 +118,7 @@ console.log("✅ Video generation service configured");
 if (USE_MOCK_API) {
   console.log("⚠️  USING MOCK API (testing mode)");
 } else {
-  console.log("🔑 Using real Runaway API with new key");
+  console.log("🔑 Using real video provider:", videoProvider);
 }
 
 // ✅ TEST ROUTE
@@ -344,6 +341,27 @@ const extractOutputUrl = (predictionOutput) => {
   return "";
 };
 
+const getSupabasePlaybackUrl = async (bucketName, storagePath) => {
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
+
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+
+    if (error) {
+      console.warn("⚠️ [STORAGE] createSignedUrl failed, trying public URL:", error.message || error);
+    }
+  } catch (error) {
+    console.warn("⚠️ [STORAGE] createSignedUrl threw error, trying public URL:", error?.message || error);
+  }
+
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
+  return data.publicUrl;
+};
+
 const uploadVideoUrlToSupabase = async (videoUrl, fileName, bucketName = supabaseBucket) => {
   const videoResponse = await fetch(videoUrl);
   if (!videoResponse.ok) {
@@ -379,8 +397,8 @@ const uploadVideoUrlToSupabase = async (videoUrl, fileName, bucketName = supabas
     }
   }
 
-  const { data } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
-  return { publicUrl: data.publicUrl, storagePath };
+  const playbackUrl = await getSupabasePlaybackUrl(bucketName, storagePath);
+  return { publicUrl: playbackUrl, storagePath };
 };
 
 const uploadToSupabase = async (filePath, fileName, bucketName = supabaseBucket) => {
@@ -411,8 +429,8 @@ const uploadToSupabase = async (filePath, fileName, bucketName = supabaseBucket)
     }
   }
 
-  const { data } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
-  return { publicUrl: data.publicUrl, storagePath };
+  const playbackUrl = await getSupabasePlaybackUrl(bucketName, storagePath);
+  return { publicUrl: playbackUrl, storagePath };
 };
 
 const uploadReferenceMediaToSupabase = async (sourcePath, originalName) => {
@@ -1473,16 +1491,19 @@ const generateVideoWithRunaway = async (prompt, duration = 10, aspectRatio = "16
   }
 
   // REAL API MODE
-  if (!runawayApiKey) {
-    throw new Error("Missing RUNAWAY_API_KEY. Add it to your environment.");
+  dotenv.config({ path: "./src/.env", override: true });
+  const activeFalApiKey = process.env.FAL_API_KEY || falApiKey;
+  const falEndpoint = "https://api.fal.ai/models/bytedance/seedance-2.0/text-to-video";
+
+  if (!activeFalApiKey) {
+    throw new Error("Missing FAL_API_KEY. Add it to your environment.");
   }
 
   console.log("🎬 [GenVideo] Generating video...");
-  console.log("🔑 [GenVideo] API Key format check - starts with 'key_':", runawayApiKey.startsWith("key_"));
-  console.log("🔑 [GenVideo] API Key length:", runawayApiKey.length);
+  console.log("🔑 [GenVideo] FAL API Key length:", activeFalApiKey.length);
 
   try {
-    // Create a text-to-video request
+    // Submit text-to-video generation request
     const requestBody = {
       prompt: prompt,
       duration: Math.max(3, Math.min(20, duration || 10)),
@@ -1490,12 +1511,12 @@ const generateVideoWithRunaway = async (prompt, duration = 10, aspectRatio = "16
     };
 
     console.log("📝 [GenVideo] Request body:", JSON.stringify(requestBody));
-    console.log("🌐 [GenVideo] Calling endpoint:", `${runawayApiUrl}/text_to_video`);
+    console.log("🌐 [GenVideo] Calling endpoint:", falEndpoint);
 
-    const response = await fetch(`${runawayApiUrl}/text_to_video`, {
+    const response = await fetch(falEndpoint, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${runawayApiKey}`,
+        "Authorization": `Key ${activeFalApiKey}`,
         "Content-Type": "application/json",
         "User-Agent": "aivideoeditor/1.0",
       },
@@ -1533,65 +1554,211 @@ const generateVideoWithRunaway = async (prompt, duration = 10, aspectRatio = "16
       throw new Error("Video generation service returned an invalid response");
     }
 
-    console.log("✅ [GenVideo] Request accepted");
+    const requestId = data.request_id || data.requestId || data.id;
+    if (!requestId) {
+      throw new Error("fal.ai submit response missing request_id");
+    }
 
-    // Check if we got a task ID or direct output
-    if (data.taskId || data.task_id) {
-      const taskId = data.taskId || data.task_id;
-      console.log("📝 Got task ID:", taskId);
+    console.log("✅ [GenVideo] Request accepted with request_id:", requestId);
 
-      // Poll for completion (max 5 minutes)
-      let attempts = 0;
-      const maxAttempts = 60; // 5 minutes with 5-second intervals
+    const maxAttempts = 60; // 5 minutes with 5-second intervals
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      await sleep(5000);
 
-      while (attempts < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
+      const statusResponse = await fetch(`${falEndpoint}/queue/${encodeURIComponent(requestId)}/status`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Key ${activeFalApiKey}`,
+        },
+      });
 
-        const statusResponse = await fetch(`${runawayApiUrl}/task/${taskId}`, {
+      const statusText = await statusResponse.text();
+      if (!statusResponse.ok) {
+        throw new Error(`Failed to check fal.ai status (${statusResponse.status}): ${statusText}`);
+      }
+
+      let statusData = {};
+      try {
+        statusData = JSON.parse(statusText || "{}");
+      } catch {
+        throw new Error("fal.ai status response returned invalid JSON");
+      }
+
+      const status = String(statusData.status || statusData.state || "").toUpperCase();
+      console.log(`⏳ [GenVideo] fal.ai status (${attempt}/${maxAttempts}):`, status || "UNKNOWN");
+
+      if (status === "COMPLETED") {
+        const resultResponse = await fetch(`${falEndpoint}/queue/${encodeURIComponent(requestId)}`, {
           method: "GET",
           headers: {
-            "Authorization": `Bearer ${runawayApiKey}`,
+            "Authorization": `Key ${activeFalApiKey}`,
           },
         });
 
-        if (!statusResponse.ok) {
-          throw new Error(`Failed to check task status: ${statusResponse.status}`);
+        const resultText = await resultResponse.text();
+        if (!resultResponse.ok) {
+          throw new Error(`Failed to fetch fal.ai result (${resultResponse.status}): ${resultText}`);
         }
 
-        const statusData = await statusResponse.json();
-        console.log(`⏳ Task Status (${attempts + 1}/${maxAttempts}):`, statusData.status);
-
-        if (statusData.status === "SUCCEEDED") {
-          const videoUrl = statusData.output?.video || statusData.videoUrl || statusData.output?.[0];
-          if (!videoUrl) {
-            throw new Error("Task succeeded but no video URL in response");
-          }
-          console.log("✅ Video generated:", videoUrl);
-          return videoUrl;
+        let resultData = {};
+        try {
+          resultData = JSON.parse(resultText || "{}");
+        } catch {
+          throw new Error("fal.ai result response returned invalid JSON");
         }
 
-        if (statusData.status === "FAILED") {
-          throw new Error(`Task failed: ${statusData.error || "Unknown error"}`);
+        const output = resultData.output || resultData.data || resultData;
+        const videoUrl =
+          output?.video?.url ||
+          output?.video_url ||
+          output?.url ||
+          output?.video?.[0]?.url ||
+          output?.videos?.[0]?.url ||
+          (Array.isArray(output) && typeof output[0] === "string" ? output[0] : "");
+
+        if (!videoUrl) {
+          throw new Error("fal.ai completed but no video URL found in result");
         }
 
-        attempts++;
+        console.log("✅ [GenVideo] Video generated:", videoUrl);
+        return videoUrl;
       }
 
-      throw new Error("Video generation timed out after 5 minutes");
+      if (status === "FAILED" || status === "ERROR" || status === "CANCELED" || status === "CANCELLED") {
+        const reason = statusData.error || statusData.message || statusText || "Unknown fal.ai failure";
+        throw new Error(`fal.ai task failed: ${reason}`);
+      }
     }
 
-    // If direct output (newer API)
-    if (data.output?.video || data.videoUrl || (Array.isArray(data.output) && data.output[0])) {
-      const videoUrl = data.output?.video || data.videoUrl || data.output?.[0];
-      console.log("✅ Video generated directly:", videoUrl);
-      return videoUrl;
-    }
-
-    throw new Error("Unexpected Runaway API response format: " + JSON.stringify(data));
+    throw new Error("Video generation timed out after 5 minutes");
   } catch (error) {
     console.error("❌ Runaway Generation Error:", error.message);
     throw error;
   }
+};
+
+// ✅ NOVITA TXT2VIDEO FUNCTION (async task API)
+const generateVideoWithNovita = async (prompt, duration = 10, aspectRatio = "16:9") => {
+  if (!novitaApiKey) {
+    throw new Error("Missing NOVITA_API_KEY. Add it to your environment.");
+  }
+  if (!novitaApiUrl) {
+    throw new Error("Missing NOVITA_API_URL. Add it to your environment.");
+  }
+  if (!novitaModelName) {
+    throw new Error("Missing NOVITA_MODEL_NAME. Add it to your environment.");
+  }
+
+  const ratioMap = {
+    "16:9": { width: 1024, height: 576 },
+    "9:16": { width: 576, height: 1024 },
+    "1:1": { width: 768, height: 768 },
+    "4:3": { width: 960, height: 720 },
+    "3:4": { width: 720, height: 960 },
+  };
+
+  const mapped = ratioMap[String(aspectRatio || "16:9")] || ratioMap["16:9"];
+
+  // Novita txt2video requires frame-counted prompt segments.
+  // We clamp duration to a practical range and map seconds to frames (8-64).
+  const clampedSeconds = Math.max(3, Math.min(20, Number(duration) || 10));
+  const frames = Math.max(8, Math.min(64, Math.round(clampedSeconds * 3.2)));
+
+  const requestBody = {
+    model_name: novitaModelName,
+    width: mapped.width,
+    height: mapped.height,
+    steps: 20,
+    seed: -1,
+    prompts: [
+      {
+        frames,
+        prompt: String(prompt || "").trim(),
+      },
+    ],
+    negative_prompt:
+      "nsfw, low quality, worst quality, blurry, watermark, text, logo",
+  };
+
+  console.log("🎬 [Novita] Creating async txt2video task...");
+  const createResponse = await fetch(`${novitaApiUrl}/v3/async/txt2video`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${novitaApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  const createText = await createResponse.text();
+  if (!createResponse.ok) {
+    throw new Error(`Novita task creation failed (${createResponse.status}): ${createText}`);
+  }
+
+  let createData = {};
+  try {
+    createData = JSON.parse(createText || "{}");
+  } catch {
+    throw new Error("Novita task creation returned invalid JSON.");
+  }
+
+  const taskId = createData.task_id || createData.taskId || createData?.task?.task_id;
+  if (!taskId) {
+    throw new Error("Novita response missing task_id.");
+  }
+
+  console.log("📝 [Novita] Task created:", taskId);
+
+  const maxAttempts = 90; // ~7.5 minutes @ 5s
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await sleep(5000);
+
+    const statusResponse = await fetch(
+      `${novitaApiUrl}/v3/async/task-result?task_id=${encodeURIComponent(taskId)}`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${novitaApiKey}`,
+        },
+      },
+    );
+
+    const statusText = await statusResponse.text();
+    if (!statusResponse.ok) {
+      throw new Error(`Novita task polling failed (${statusResponse.status}): ${statusText}`);
+    }
+
+    let statusData = {};
+    try {
+      statusData = JSON.parse(statusText || "{}");
+    } catch {
+      throw new Error("Novita task polling returned invalid JSON.");
+    }
+
+    const status = String(statusData?.task?.status || "").toUpperCase();
+    const videoUrl =
+      statusData?.videos?.[0]?.video_url ||
+      statusData?.videos?.[0]?.url ||
+      statusData?.video_url ||
+      "";
+
+    console.log(`⏳ [Novita] Task status (${attempt}/${maxAttempts}):`, status || "UNKNOWN");
+
+    if (status.includes("SUCCEED") || status.includes("SUCCESS") || status === "COMPLETED") {
+      if (!videoUrl) {
+        throw new Error("Novita task succeeded but no video URL was returned.");
+      }
+      console.log("✅ [Novita] Video generated:", videoUrl);
+      return videoUrl;
+    }
+
+    if (status.includes("FAIL") || status.includes("ERROR") || status.includes("CANCEL")) {
+      const reason = statusData?.task?.reason || "Unknown Novita failure";
+      throw new Error(`Novita task failed: ${reason}`);
+    }
+  }
+
+  throw new Error("Novita task timed out while waiting for result.");
 };
 
 const buildEffectPromptSnippet = (effects) => {
@@ -1676,7 +1843,7 @@ app.post("/generate", async (req, res) => {
     
     let videoUrl = "";
 
-    // Use Runaway API for prompt-based generation
+    // AI-generated flow uses Runway only (env key: RUNAWAY_API_KEY)
     console.log("🎬 [API] Starting video generation...");
     videoUrl = await generateVideoWithRunaway(finalPrompt, seconds, frame || "16:9");
     console.log("✅ [API] Video generated successfully");
@@ -1917,7 +2084,12 @@ app.post(
         settings: resolvedEffectSettings,
       };
 
-      const isQuickEditMode = String(quickEditMode || "").toLowerCase() === "true";
+      const requestedTool = String(req.body?.tool || req.body?.flow || "").toLowerCase();
+      const flowHeader = String(req.get("x-vireonix-flow") || "").toLowerCase();
+      const isQuickEditMode =
+        String(quickEditMode || "").toLowerCase() === "true" ||
+        requestedTool === "quick-edit" ||
+        flowHeader === "quick-edit";
 
       console.log("📍 [API-MEDIA] Direct media generation request received");
 
@@ -1934,6 +2106,15 @@ app.post(
       let seconds = Math.max(3, Math.min(180, Number(duration) || 10));
       const aspect = frame || "16:9";
 
+      // Pick media source and determine storage bucket before any logging/processing.
+      const videoFile = mediaFiles.find((f) => f.mimetype?.startsWith("video/"));
+      const imageFiles = mediaFiles.filter((f) => f.mimetype?.startsWith("image/"));
+      const outputBucket = isQuickEditMode
+        ? SUPABASE_BUCKETS.QUICK_EDITS
+        : !videoFile && imageFiles.length > 0
+        ? SUPABASE_BUCKETS.IMAGE_TO_VIDEO
+        : SUPABASE_BUCKETS.AI_GENERATED;
+
       console.log("📝 [API-MEDIA] Config:", {
         prompt,
         durationSeconds: seconds,
@@ -1941,6 +2122,8 @@ app.post(
         mediaCount: mediaFiles.length,
         hasAudio: audioFiles.length > 0,
         quickEditMode: isQuickEditMode,
+        requestedTool,
+        flowHeader,
         outputBucket,
         selectedEffectIncoming: selectedEffect || "none",
         selectedFilterIncoming: selectedFilter || "none",
@@ -1985,16 +2168,6 @@ app.post(
         text: String(resolvedTextOverlay?.text || "").slice(0, 80),
         transitions: transitionSummary || "none",
       });
-
-      // Pick video or images as visual source
-      const videoFile = mediaFiles.find((f) => f.mimetype?.startsWith("video/"));
-      const imageFiles = mediaFiles.filter((f) => f.mimetype?.startsWith("image/"));
-
-      const outputBucket = isQuickEditMode
-        ? SUPABASE_BUCKETS.QUICK_EDITS
-        : !videoFile && imageFiles.length > 0
-        ? SUPABASE_BUCKETS.IMAGE_TO_VIDEO
-        : SUPABASE_BUCKETS.AI_GENERATED;
 
       if (!videoFile && !imageFiles.length) {
         console.error("❌ [API-MEDIA] Unsupported media types");
