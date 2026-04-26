@@ -18,24 +18,24 @@ import {
   ChevronDown,
   LogOut
 } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Textarea } from "../components/ui/textarea";
-import { useAuth } from "../context/auth-context";
-import { LoginModal } from "./login-modal";
-import { LoadingModal, type LoadingState } from "../components/loading-modal";
-import { BrandLogo } from "../components/brand-logo";
-import { HistoryDialog, type HistoryItem, saveToHistory } from "../components/history-dialog";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { useAuth } from "../../context/auth-context";
+import { LoginModal } from "../../components/login-modal";
+import { LoadingModal, type LoadingState } from "../../components/loading-modal";
+import { BrandLogo } from "../../components/brand-logo";
+import { HistoryDialog, type HistoryItem, saveToHistory } from "../../components/history-dialog";
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
   DialogTrigger 
-} from "../components/ui/dialog";
-import { Label } from "../components/ui/label";
-import { Switch } from "../components/ui/switch";
-import { PremiumModal } from "../components/premium-modal";
+} from "../../components/ui/dialog";
+import { Label } from "../../components/ui/label";
+import { Switch } from "../../components/ui/switch";
+import { PremiumModal } from "../../components/premium-modal";
 
 const frameStyleOptions = [
   { label: "16:9", width: 32, height: 18 },

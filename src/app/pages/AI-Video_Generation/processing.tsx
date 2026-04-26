@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Loader2, Video } from "lucide-react";
-import { Progress } from "../components/ui/progress";
+import { Progress } from "../../components/ui/progress";
 
 const statusMessages = [
   "Analyzing clips",

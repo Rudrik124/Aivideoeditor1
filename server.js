@@ -13,7 +13,9 @@ import dotenv from "dotenv";
 // Load environment variables (including GEMINI_API_KEY and Supabase keys)
 dotenv.config({ path: "./src/.env", override: true });
 
-const falApiKey = process.env.FAL_API_KEY || "";
+const readEnv = (name) => process.env[name] || process.env[`VITE_${name}`] || "";
+
+const falApiKey = readEnv("FAL_API_KEY");
 fal.config({
   credentials: falApiKey,
 });
@@ -46,8 +48,8 @@ const makeTempFilePath = (suffix) => {
 };
 
 // ✅ INIT SUPABASE (env-only, no hardcoded secrets)
-const supabaseUrl = process.env.SUPABASE_URL || "";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseUrl = readEnv("SUPABASE_URL");
+const serviceRoleKey = readEnv("SUPABASE_SERVICE_ROLE_KEY");
 
 console.log("🔍 Parsed service role key length:", serviceRoleKey ? serviceRoleKey.length : 0);
 console.log(
@@ -56,24 +58,24 @@ console.log(
 );
 console.log(
   "🔍 ENV SUPABASE_ANON_KEY prefix:",
-  process.env.SUPABASE_ANON_KEY
-    ? process.env.SUPABASE_ANON_KEY.slice(0, 10) + "..."
+  readEnv("SUPABASE_ANON_KEY")
+    ? readEnv("SUPABASE_ANON_KEY").slice(0, 10) + "..."
     : "<none>",
 );
 
-const supabaseKey = serviceRoleKey || process.env.SUPABASE_ANON_KEY || "";
+const supabaseKey = serviceRoleKey || readEnv("SUPABASE_ANON_KEY") || "";
 if (!supabaseUrl || !supabaseKey) {
   throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY in environment.");
 }
 // Bucket mapping by function.
 const SUPABASE_BUCKETS = {
-  AI_GENERATED: (process.env.SUPABASE_BUCKET_AI_GENERATED || "AI_Generated_Video").trim(),
-  IMAGE_TO_VIDEO: (process.env.SUPABASE_BUCKET_IMAGE_TO_VIDEO || "Image-to-video_function").trim(),
-  REFERENCE_VIDEO: (process.env.SUPABASE_BUCKET_REFERENCE_VIDEO || "Reference_video_function").trim(),
-  QUICK_EDITS: (process.env.SUPABASE_BUCKET_QUICK_EDITS || "quick_edits").trim(),
+  AI_GENERATED: (readEnv("SUPABASE_BUCKET_AI_GENERATED") || "AI_Generated_Video").trim(),
+  IMAGE_TO_VIDEO: (readEnv("SUPABASE_BUCKET_IMAGE_TO_VIDEO") || "Image-to-video_function").trim(),
+  REFERENCE_VIDEO: (readEnv("SUPABASE_BUCKET_REFERENCE_VIDEO") || "Reference_video_function").trim(),
+  QUICK_EDITS: (readEnv("SUPABASE_BUCKET_QUICK_EDITS") || "quick_edits").trim(),
 };
 
-const supabaseBucket = (process.env.SUPABASE_STORAGE_BUCKET || SUPABASE_BUCKETS.IMAGE_TO_VIDEO).trim();
+const supabaseBucket = (readEnv("SUPABASE_STORAGE_BUCKET") || SUPABASE_BUCKETS.IMAGE_TO_VIDEO).trim();
 console.log("🔗 Supabase URL:", supabaseUrl);
 console.log("🔗 Supabase key prefix:", supabaseKey ? supabaseKey.slice(0, 10) + "..." : "<none>");
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -98,21 +100,21 @@ supabase.storage
   });
 
 // ✅ INIT RUNAWAY API
-const runawayApiKey = process.env.RUNAWAY_API_KEY || process.env.RUNWAY_API_KEY || "";
-const runawayApiUrl = process.env.RUNAWAY_API_URL || "https://api.runwayml.com/v1";
-const USE_MOCK_API = process.env.USE_MOCK_API === "true"; // Set USE_MOCK_API=true for testing without valid API key
+const runawayApiKey = readEnv("RUNAWAY_API_KEY") || readEnv("RUNWAY_API_KEY") || "";
+const runawayApiUrl = readEnv("RUNAWAY_API_URL") || "https://api.runwayml.com/v1";
+const USE_MOCK_API = readEnv("USE_MOCK_API") === "true"; // Set USE_MOCK_API=true for testing without valid API key
 
 // ✅ INIT NOVITA API (optional provider for text-to-video)
-const novitaApiKey = process.env.NOVITA_API_KEY || "";
-const novitaApiUrl = process.env.NOVITA_API_URL || "";
-const videoProvider = (process.env.VIDEO_PROVIDER || "runway").toLowerCase();
-const novitaModelName = process.env.NOVITA_MODEL_NAME || "";
+const novitaApiKey = readEnv("NOVITA_API_KEY") || "";
+const novitaApiUrl = readEnv("NOVITA_API_URL") || "";
+const videoProvider = (readEnv("VIDEO_PROVIDER") || "runway").toLowerCase();
+const novitaModelName = readEnv("NOVITA_MODEL_NAME") || "";
 
 // ✅ INIT GEMINI (used as understanding layer for media flows)
-const geminiApiKey = process.env.GEMINI_API_KEY || "";
-const geminiModelId = process.env.GEMINI_MODEL_ID || "gemini-2.5-flash";
+const geminiApiKey = readEnv("GEMINI_API_KEY") || "";
+const geminiModelId = readEnv("GEMINI_MODEL_ID") || "gemini-2.5-flash";
 // ✅ Veo model for AI video generation (images only for now)
-const veoModelId = process.env.VEO_MODEL_ID || "veo-3.1-generate-preview";
+const veoModelId = readEnv("VEO_MODEL_ID") || "veo-3.1-generate-preview";
 
 console.log("✅ Video generation service configured");
 if (USE_MOCK_API) {
@@ -1492,7 +1494,7 @@ const generateVideoWithRunaway = async (prompt, duration = 10, aspectRatio = "16
 
   // REAL API MODE
   dotenv.config({ path: "./src/.env", override: true });
-  const activeFalApiKey = process.env.FAL_API_KEY || falApiKey;
+  const activeFalApiKey = readEnv("FAL_API_KEY") || falApiKey;
   const falEndpoint = "https://api.fal.ai/models/bytedance/seedance-2.0/text-to-video";
 
   if (!activeFalApiKey) {

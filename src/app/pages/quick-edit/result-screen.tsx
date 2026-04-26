@@ -22,7 +22,17 @@ import { BrandLogo } from "../../components/brand-logo";
 export function QuickEditResultScreen() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { videoUrl, config, metrics } = (location.state as any) || {};
+  const routeState = (location.state as any) || {};
+  const persistedVideoUrl = localStorage.getItem("quickEditGeneratedVideo") || "";
+  const persistedConfigRaw = localStorage.getItem("quickEditConfig");
+  const persistedMetricsRaw = localStorage.getItem("quickEditMetrics");
+
+  const persistedConfig = persistedConfigRaw ? JSON.parse(persistedConfigRaw) : {};
+  const persistedMetrics = persistedMetricsRaw ? JSON.parse(persistedMetricsRaw) : {};
+
+  const videoUrl = routeState.videoUrl || persistedVideoUrl;
+  const config = routeState.config || persistedConfig;
+  const metrics = routeState.metrics || persistedMetrics;
 
   // If no video was passed, we shouldn't be here
   if (!videoUrl) {
@@ -33,8 +43,13 @@ export function QuickEditResultScreen() {
   }
 
   const handleDownload = async () => {
+    if (!videoUrl) return;
+
     try {
       const response = await fetch(videoUrl);
+      if (!response.ok) {
+        throw new Error(`Unable to download video (${response.status})`);
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -46,6 +61,8 @@ export function QuickEditResultScreen() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Download failed", error);
+      // Fallback: open the media URL directly so the browser can handle save/play.
+      window.open(videoUrl, "_blank", "noopener,noreferrer");
     }
   };
 

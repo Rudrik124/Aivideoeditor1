@@ -184,7 +184,7 @@ export function QuickEditProcessingScreen() {
         const timeoutMs = 180000; // 3 minutes
         const timeoutHandle = window.setTimeout(() => controller.abort(), timeoutMs);
 
-        const response = await fetch("http://localhost:5000/generate-from-media", {
+        const response = await fetch("/api/generate-from-media", {
           method: "POST",
           body: formData,
           headers: {
@@ -208,6 +208,18 @@ export function QuickEditProcessingScreen() {
         }
         
         if (data.success && !isCanceled) {
+          // Persist quick-edit outputs so result screen still works after refresh/navigation.
+          localStorage.setItem("quickEditGeneratedVideo", data.video || "");
+          localStorage.setItem("quickEditConfig", JSON.stringify(editConfig || {}));
+          localStorage.setItem(
+            "quickEditMetrics",
+            JSON.stringify({
+              editTime: "4.2s",
+              sceneCuts: editConfig.aiOptions.autoCuts ? "12 Smart Cuts" : "0 Cuts",
+              res: editConfig.exportQuality || "1080p",
+            }),
+          );
+
           setProgress(100);
           setCurrentStep(steps.length - 1);
           

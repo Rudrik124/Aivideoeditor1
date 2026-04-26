@@ -1,8 +1,8 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import { Download, Sparkles, Share2, ArrowLeft } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { BrandLogo } from "../components/brand-logo";
+import { Button } from "../../components/ui/button";
+import { BrandLogo } from "../../components/brand-logo";
 
 export function ResultPage() {
   const navigate = useNavigate();

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/auth-context";
-import { LoginModal } from "../login-modal";
+import { LoginModal } from "../../components/login-modal";
 import { Button } from "../../components/ui/button";
 import { BrandLogo } from "../../components/brand-logo";
 import { Input } from "../../components/ui/input";

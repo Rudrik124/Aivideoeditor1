@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "../components/ui/button";
-import { LoginModal } from "./login-modal";
+import { LoginModal } from "../components/login-modal";
 import { useAuth } from "../context/auth-context";
 import { SuccessToast } from "../components/success-toast";
 import { BrandLogo } from "../components/brand-logo";
