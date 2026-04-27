@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import { Film, Wand2 } from "lucide-react";
 import { buildApiUrl } from "../../../lib/api";
+import { buildVideoApiError, parseVideoApiResponse } from "../../../lib/video-response";
 
 type ReferenceVideoConfig = {
   prompt: string;
@@ -56,23 +57,14 @@ export function ReferenceVideoProcessingScreen() {
           body: formData,
         });
 
-        const rawBody = await response.text();
-        let data: any = {};
+        const { data, rawBody, video, message } = await parseVideoApiResponse(response);
+        const errorMessage = buildVideoApiError({ response, data, rawBody, message, video });
 
-        if (rawBody) {
-          try {
-            data = JSON.parse(rawBody);
-          } catch {
-            data = { error: rawBody };
-          }
+        if (errorMessage) {
+          throw new Error(errorMessage);
         }
 
-        if (!response.ok || !data.success || !data.video) {
-          const message = data.error || data.detail || `Video generation failed (${response.status}).`;
-          throw new Error(message);
-        }
-
-        localStorage.setItem("generatedVideo", data.video);
+        localStorage.setItem("generatedVideo", video);
         localStorage.removeItem("generatedVideoError");
         if (data.storage) {
           localStorage.setItem("generatedVideoStorage", data.storage);

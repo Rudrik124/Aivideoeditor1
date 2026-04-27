@@ -26,6 +26,7 @@ import { Label } from "../../components/ui/label";
 import { Switch } from "../../components/ui/switch";
 import { PremiumModal } from "../../components/premium-modal";
 import { buildApiUrl } from "../../../lib/api";
+import { buildVideoApiError, parseVideoApiResponse } from "../../../lib/video-response";
 
 const EmojiIcon = ({ icon: Icon, size = "md", className = "" }: { icon: LucideIcon, size?: "sm" | "md" | "lg" | "xl", className?: string }) => {
   const sizeClasses = {
@@ -182,26 +183,17 @@ export function ImagesToVideoUploadScreen() {
         body: formData,
       });
 
-      const rawBody = await response.text();
-      let data: any = {};
+      const { data, rawBody, video, message } = await parseVideoApiResponse(response);
+      const errorMessage = buildVideoApiError({ response, data, rawBody, message, video });
 
-      if (rawBody) {
-        try {
-          data = JSON.parse(rawBody);
-        } catch {
-          data = { error: rawBody };
-        }
-      }
-
-      if (!response.ok || !data.success || !data.video) {
-        const message = data.error || data.detail || `Video generation failed (${response.status}).`;
-        throw new Error(message);
+      if (errorMessage) {
+        throw new Error(errorMessage);
       }
 
       setLoadingState("success");
       setLoadingMessage("Video generated successfully!");
 
-      localStorage.setItem("generatedVideo", data.video);
+      localStorage.setItem("generatedVideo", video);
       localStorage.removeItem("generatedVideoError");
       if (data.storage) {
         localStorage.setItem("generatedVideoStorage", data.storage);

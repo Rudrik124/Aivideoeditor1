@@ -373,6 +373,14 @@ const extractOutputUrl = (predictionOutput) => {
   return "";
 };
 
+const ensurePlayableVideoUrl = (url, context) => {
+  const normalized = typeof url === "string" ? url.trim() : "";
+  if (!normalized) {
+    throw new Error(`${context} did not return a playable video URL.`);
+  }
+  return normalized;
+};
+
 const getSupabasePlaybackUrl = async (bucketName, storagePath) => {
   try {
     const { data, error } = await supabase.storage
@@ -391,7 +399,7 @@ const getSupabasePlaybackUrl = async (bucketName, storagePath) => {
   }
 
   const { data } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
-  return data.publicUrl;
+  return ensurePlayableVideoUrl(data?.publicUrl, "Supabase public URL");
 };
 
 const uploadVideoUrlToSupabase = async (videoUrl, fileName, bucketName = supabaseBucket) => {
@@ -429,7 +437,10 @@ const uploadVideoUrlToSupabase = async (videoUrl, fileName, bucketName = supabas
     }
   }
 
-  const playbackUrl = await getSupabasePlaybackUrl(bucketName, storagePath);
+  const playbackUrl = ensurePlayableVideoUrl(
+    await getSupabasePlaybackUrl(bucketName, storagePath),
+    "Supabase playback URL",
+  );
   return { publicUrl: playbackUrl, storagePath };
 };
 
@@ -461,7 +472,10 @@ const uploadToSupabase = async (filePath, fileName, bucketName = supabaseBucket)
     }
   }
 
-  const playbackUrl = await getSupabasePlaybackUrl(bucketName, storagePath);
+  const playbackUrl = ensurePlayableVideoUrl(
+    await getSupabasePlaybackUrl(bucketName, storagePath),
+    "Supabase playback URL",
+  );
   return { publicUrl: playbackUrl, storagePath };
 };
 
@@ -482,7 +496,10 @@ const uploadReferenceMediaToSupabase = async (sourcePath, originalName) => {
   }
 
   const { data } = supabase.storage.from(SUPABASE_BUCKETS.REFERENCE_VIDEO).getPublicUrl(storagePath);
-  return { publicUrl: data.publicUrl, storagePath };
+  return {
+    publicUrl: ensurePlayableVideoUrl(data?.publicUrl, "Reference media public URL"),
+    storagePath,
+  };
 };
 
 // ✅ Upload a local media file (image/video) to Gemini Files API

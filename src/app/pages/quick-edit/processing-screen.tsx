@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { buildApiUrl } from "../../../lib/api";
+import { buildVideoApiError, parseVideoApiResponse } from "../../../lib/video-response";
 
 export function QuickEditProcessingScreen() {
   const navigate = useNavigate();
@@ -196,21 +197,16 @@ export function QuickEditProcessingScreen() {
 
         window.clearTimeout(timeoutHandle);
 
-        let data: any = null;
-        try {
-          data = await response.json();
-        } catch {
-          data = null;
-        }
+        const { data, rawBody, video, message } = await parseVideoApiResponse(response);
+        const errorMessage = buildVideoApiError({ response, data, rawBody, message, video });
 
-        if (!response.ok) {
-          const apiError = data?.error || `Server error (${response.status}).`;
-          throw new Error(apiError);
+        if (errorMessage) {
+          throw new Error(errorMessage);
         }
         
         if (data.success && !isCanceled) {
           // Persist quick-edit outputs so result screen still works after refresh/navigation.
-          localStorage.setItem("quickEditGeneratedVideo", data.video || "");
+          localStorage.setItem("quickEditGeneratedVideo", video);
           localStorage.setItem("quickEditConfig", JSON.stringify(editConfig || {}));
           localStorage.setItem(
             "quickEditMetrics",
@@ -228,7 +224,7 @@ export function QuickEditProcessingScreen() {
           setTimeout(() => {
             navigate("/quick-edit/result", { 
               state: { 
-                videoUrl: data.video, 
+                videoUrl: video, 
                 config: editConfig,
                 metrics: {
                   editTime: "4.2s",

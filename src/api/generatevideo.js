@@ -1,4 +1,5 @@
 import { buildApiUrl } from "../lib/api";
+import { buildVideoApiError, parseVideoApiResponse } from "../lib/video-response";
 
 export const generateVideo = async ({
   prompt,
@@ -27,31 +28,12 @@ export const generateVideo = async ({
     }),
   });
 
-  const rawBody = await response.text();
-  let data = {};
+  const { data, rawBody, video, message } = await parseVideoApiResponse(response);
+  const errorMessage = buildVideoApiError({ response, data, rawBody, message, video });
 
-  if (rawBody) {
-    try {
-      data = JSON.parse(rawBody);
-    } catch {
-      data = { error: rawBody };
-    }
+  if (errorMessage) {
+    throw new Error(errorMessage);
   }
 
-  const extractedError =
-    (typeof data?.error === "string" && data.error) ||
-    (typeof data?.error?.message === "string" && data.error.message) ||
-    (typeof data?.detail === "string" && data.detail) ||
-    (typeof data?.message === "string" && data.message) ||
-    "";
-
-  const hasVideo = typeof data?.video === "string" && data.video.trim().length > 0;
-  if (!response.ok || data?.success !== true || !hasVideo) {
-    const fallbackSnippet = rawBody ? String(rawBody).slice(0, 220) : "No response details.";
-    throw new Error(
-      extractedError || `Video generation failed (status ${response.status}). ${fallbackSnippet}`,
-    );
-  }
-
-  return data;
+  return { ...data, video };
 };
