@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  envDir: "src",
+  envDir: ".",
   envPrefix: ["VITE_", "SUPABASE_"],
   plugins: [
     // The React and Tailwind plugins are both required for Make, even if

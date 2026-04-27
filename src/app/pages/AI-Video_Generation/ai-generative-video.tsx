@@ -36,6 +36,7 @@ import {
 import { Label } from "../../components/ui/label";
 import { Switch } from "../../components/ui/switch";
 import { PremiumModal } from "../../components/premium-modal";
+import { generateVideo } from "../../../api/generatevideo";
 
 const frameStyleOptions = [
   { label: "16:9", width: 32, height: 18 },
@@ -150,38 +151,11 @@ export function AIGenerativeVideoPage() {
         frame: selectedRatio,
         quality: exportQuality,
         fps,
-        watermark
+        watermark,
       };
 
-      console.log("📤 Sending POST /api/generate with:", JSON.stringify(requestPayload));
-
-      const response = await fetch(`/api/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestPayload),
-      });
-
-      const rawBody = await response.text();
-      console.log(`📥 Response status: ${response.status}, body:`, rawBody);
-
-      let data: any = {};
-      if (rawBody) {
-        try {
-          data = JSON.parse(rawBody);
-        } catch {
-          data = { error: rawBody };
-        }
-      }
-
-      console.log("📊 Parsed response:", data);
-
-      if (!response.ok || !data.success || !data.video) {
-        const message = data.error || data.detail || `Video generation failed (${response.status}).`;
-        console.error("❌ Generation failed:", message);
-        throw new Error(message);
-      }
+      console.log("📤 Sending JSON2Video request with:", JSON.stringify(requestPayload));
+      const data = await generateVideo(requestPayload);
 
       console.log("✅ Generation successful:", data.video);
 

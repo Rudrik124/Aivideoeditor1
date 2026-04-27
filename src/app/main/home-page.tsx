@@ -25,6 +25,7 @@ import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../context/auth-context";
 import { SuccessToast } from "../components/success-toast";
 import { BrandLogo } from "../components/brand-logo";
+import { generateVideo } from "../../api/generatevideo";
 
 const durations = [
 	{ value: 1, label: "1 min" },
@@ -119,26 +120,12 @@ export function HomePage() {
 				frame: "16:9",
 			};
 
-			const res = await fetch("/api/generate", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(requestPayload),
-			});
-
-			const rawBody = await res.text();
-			let data: any = {};
-			if (rawBody) {
-				try {
-					data = JSON.parse(rawBody);
-				} catch {
-					data = { error: rawBody };
-				}
-			}
+			const data = await generateVideo(requestPayload);
 
 			console.log("Backend response:", data);
 
 			if (!data.success) {
-				alert(data.error || `Video generation failed (${res.status})`);
+				alert(data.error || "Video generation failed");
 				return;
 			}
 

@@ -10,10 +10,35 @@ import os from "os";
 import path from "path";
 import dotenv from "dotenv";
 
-// Load environment variables (including GEMINI_API_KEY and Supabase keys)
-dotenv.config({ path: "./src/.env", override: true });
+const loadEnvFiles = () => {
+  dotenv.config({ path: "./.env", override: false });
+  dotenv.config({ path: "./src/.env", override: true });
+};
+
+// Load environment variables (including JSON2VIDEO_API_KEY and Supabase keys)
+loadEnvFiles();
 
 const readEnv = (name) => process.env[name] || process.env[`VITE_${name}`] || "";
+
+const toErrorMessage = (value, fallback = "Unexpected error") => {
+  if (!value) return fallback;
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return value.message || fallback;
+
+  if (typeof value === "object") {
+    const candidate = value.error || value.detail || value.message || value.reason;
+    if (candidate) {
+      return typeof candidate === "string" ? candidate : JSON.stringify(candidate);
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+
+  return String(value);
+};
 
 const falApiKey = readEnv("FAL_API_KEY");
 fal.config({
@@ -99,16 +124,21 @@ supabase.storage
     console.log("⚠️ Error listing buckets:", e?.message || e);
   });
 
-// ✅ INIT RUNAWAY API
-const runawayApiKey = readEnv("RUNAWAY_API_KEY") || readEnv("RUNWAY_API_KEY") || "";
-const runawayApiUrl = readEnv("RUNAWAY_API_URL") || "https://api.runwayml.com/v1";
+// ✅ INIT JSON2VIDEO API
+const json2VideoApiKey = readEnv("JSON2VIDEO_API_KEY") || "";
+const json2VideoApiUrl = (readEnv("JSON2VIDEO_API_URL") || "https://api.json2video.com/v2").replace(/\/$/, "");
 const USE_MOCK_API = readEnv("USE_MOCK_API") === "true"; // Set USE_MOCK_API=true for testing without valid API key
 
 // ✅ INIT NOVITA API (optional provider for text-to-video)
 const novitaApiKey = readEnv("NOVITA_API_KEY") || "";
 const novitaApiUrl = readEnv("NOVITA_API_URL") || "";
-const videoProvider = (readEnv("VIDEO_PROVIDER") || "runway").toLowerCase();
+const videoProvider = (readEnv("VIDEO_PROVIDER") || "json2video").toLowerCase();
 const novitaModelName = readEnv("NOVITA_MODEL_NAME") || "";
+const openRouterApiKey = readEnv("OPENROUTER_API_KEY") || "";
+const openRouterModel = readEnv("OPENROUTER_MODEL") || "openai/gpt-4o-mini";
+const openRouterBaseUrl = (readEnv("OPENROUTER_BASE_URL") || "https://openrouter.ai/api/v1").replace(/\/$/, "");
+const openRouterAppName = readEnv("OPENROUTER_APP_NAME") || "vireonix-ai";
+const openRouterSiteUrl = readEnv("OPENROUTER_SITE_URL") || "http://localhost:5173";
 
 // ✅ INIT GEMINI (used as understanding layer for media flows)
 const geminiApiKey = readEnv("GEMINI_API_KEY") || "";
@@ -1474,8 +1504,56 @@ const mergeSegmentsWithTransitions = async (segmentPaths, transitions, outputPat
   });
 };
 
-// ✅ RUNAWAY API FUNCTION
-const generateVideoWithRunaway = async (prompt, duration = 10, aspectRatio = "16:9") => {
+const buildJson2VideoMovie = (prompt, duration = 10, aspectRatio = "16:9") => {
+  const normalizedPrompt = String(prompt || "").trim();
+  const safeDuration = Math.max(3, Math.min(180, Number(duration) || 10));
+  const ratioMap = {
+    "16:9": { width: 1920, height: 1080 },
+    "9:16": { width: 1080, height: 1920 },
+    "4:3": { width: 1440, height: 1080 },
+    "3:4": { width: 1080, height: 1440 },
+    "1:1": { width: 1080, height: 1080 },
+    "4:5": { width: 1080, height: 1350 },
+    "2.35:1": { width: 1920, height: 816 },
+  };
+  const size = ratioMap[String(aspectRatio || "16:9")] || ratioMap["16:9"];
+
+  return {
+    width: size.width,
+    height: size.height,
+    quality: "high",
+    draft: false,
+    scenes: [
+      {
+        duration: safeDuration,
+        "background-color": "#0b1020",
+        elements: [
+          {
+            type: "text",
+            style: "003",
+            text: normalizedPrompt,
+            duration: safeDuration,
+            settings: {
+              color: "#F8FAFC",
+              "font-family": "Montserrat",
+              "font-size": size.width >= size.height ? "72px" : "60px",
+              "font-weight": "800",
+              "text-align": "center",
+              "vertical-position": "center",
+              "horizontal-position": "center",
+              padding: "64px",
+              shadow: 2,
+            },
+            width: Math.round(size.width * 0.8),
+          },
+        ],
+      },
+    ],
+  };
+};
+
+// ✅ JSON2VIDEO API FUNCTION
+const generateVideoWithJson2Video = async (prompt, duration = 10, aspectRatio = "16:9") => {
   // MOCK MODE - for testing without valid API key
   if (USE_MOCK_API) {
     console.log("🎬 [MockAPI] Generating mock video...");
@@ -1492,150 +1570,100 @@ const generateVideoWithRunaway = async (prompt, duration = 10, aspectRatio = "16
     return mockUrl;
   }
 
-  // REAL API MODE
-  dotenv.config({ path: "./src/.env", override: true });
-  const activeFalApiKey = readEnv("FAL_API_KEY") || falApiKey;
-  const falEndpoint = "https://api.fal.ai/models/bytedance/seedance-2.0/text-to-video";
+  loadEnvFiles();
+  const activeJson2VideoApiKey = readEnv("JSON2VIDEO_API_KEY") || json2VideoApiKey;
 
-  if (!activeFalApiKey) {
-    throw new Error("Missing FAL_API_KEY. Add it to your environment.");
+  if (!activeJson2VideoApiKey) {
+    throw new Error("Missing JSON2VIDEO_API_KEY. Add it to .env.");
   }
 
-  console.log("🎬 [GenVideo] Generating video...");
-  console.log("🔑 [GenVideo] FAL API Key length:", activeFalApiKey.length);
+  console.log("🎬 [JSON2Video] Starting render...");
+  console.log("🔑 [JSON2Video] API Key length:", activeJson2VideoApiKey.length);
 
   try {
-    // Submit text-to-video generation request
-    const requestBody = {
-      prompt: prompt,
-      duration: Math.max(3, Math.min(20, duration || 10)),
-      aspect_ratio: aspectRatio,
-    };
+    const requestBody = buildJson2VideoMovie(prompt, duration, aspectRatio);
 
-    console.log("📝 [GenVideo] Request body:", JSON.stringify(requestBody));
-    console.log("🌐 [GenVideo] Calling endpoint:", falEndpoint);
+    console.log("📝 [JSON2Video] Request body:", JSON.stringify(requestBody));
 
-    const response = await fetch(falEndpoint, {
+    const createResponse = await fetch(`${json2VideoApiUrl}/movies`, {
       method: "POST",
       headers: {
-        "Authorization": `Key ${activeFalApiKey}`,
+        "x-api-key": activeJson2VideoApiKey,
         "Content-Type": "application/json",
-        "User-Agent": "aivideoeditor/1.0",
       },
       body: JSON.stringify(requestBody),
     });
 
-    const responseText = await response.text();
-    console.log("📥 [GenVideo] Raw response status:", response.status);
-    console.log("📥 [GenVideo] Raw response headers:", {
-      "content-type": response.headers.get("content-type"),
-      "x-request-id": response.headers.get("x-request-id"),
-    });
-    console.log("📥 [GenVideo] Raw response text:", responseText);
+    const createText = await createResponse.text();
+    console.log("📥 [JSON2Video] Create response status:", createResponse.status);
+    console.log("📥 [JSON2Video] Create response body:", createText);
 
-    if (!response.ok) {
-      console.error("❌ [GenVideo] API error (status " + response.status + ")");
-      console.error("❌ [GenVideo] Full response:", responseText);
-      let errorMsg = "Video generation service temporarily unavailable";
-      try {
-        const errorData = JSON.parse(responseText);
-        if (errorData.error) errorMsg = errorData.error;
-        else if (errorData.detail) errorMsg = errorData.detail;
-        else if (errorData.message) errorMsg = errorData.message;
-      } catch (e) {
-        errorMsg = responseText || errorMsg;
-      }
-      throw new Error(errorMsg);
+    if (!createResponse.ok) {
+      throw new Error(`JSON2Video create request failed (${createResponse.status}): ${toErrorMessage(createText)}`);
     }
 
-    let data = {};
+    let createData = {};
     try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      console.error("❌ [GenVideo] Invalid response format");
-      throw new Error("Video generation service returned an invalid response");
+      createData = JSON.parse(createText || "{}");
+    } catch {
+      throw new Error("JSON2Video create response returned invalid JSON.");
     }
 
-    const requestId = data.request_id || data.requestId || data.id;
-    if (!requestId) {
-      throw new Error("fal.ai submit response missing request_id");
+    const projectId = createData.project || createData?.movie?.project || createData?.data?.project;
+    if (!projectId) {
+      throw new Error("JSON2Video create response missing project id.");
     }
 
-    console.log("✅ [GenVideo] Request accepted with request_id:", requestId);
+    const taskStatusEndpoint = `${json2VideoApiUrl}/movies?project=${encodeURIComponent(projectId)}`;
+    const maxAttempts = 90;
 
-    const maxAttempts = 60; // 5 minutes with 5-second intervals
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       await sleep(5000);
 
-      const statusResponse = await fetch(`${falEndpoint}/queue/${encodeURIComponent(requestId)}/status`, {
+      const statusResponse = await fetch(taskStatusEndpoint, {
         method: "GET",
         headers: {
-          "Authorization": `Key ${activeFalApiKey}`,
+          "x-api-key": activeJson2VideoApiKey,
         },
       });
 
       const statusText = await statusResponse.text();
       if (!statusResponse.ok) {
-        throw new Error(`Failed to check fal.ai status (${statusResponse.status}): ${statusText}`);
+        throw new Error(`JSON2Video status check failed (${statusResponse.status}): ${toErrorMessage(statusText)}`);
       }
 
       let statusData = {};
       try {
         statusData = JSON.parse(statusText || "{}");
       } catch {
-        throw new Error("fal.ai status response returned invalid JSON");
+        throw new Error("JSON2Video status response returned invalid JSON.");
       }
 
-      const status = String(statusData.status || statusData.state || "").toUpperCase();
-      console.log(`⏳ [GenVideo] fal.ai status (${attempt}/${maxAttempts}):`, status || "UNKNOWN");
+      const movie = statusData.movie || {};
+      const status = String(movie.status || statusData.status || "").toLowerCase();
+      const videoUrl = movie.url || statusData.url || "";
 
-      if (status === "COMPLETED") {
-        const resultResponse = await fetch(`${falEndpoint}/queue/${encodeURIComponent(requestId)}`, {
-          method: "GET",
-          headers: {
-            "Authorization": `Key ${activeFalApiKey}`,
-          },
-        });
+      console.log(`⏳ [JSON2Video] Task status (${attempt}/${maxAttempts}):`, status || "unknown");
 
-        const resultText = await resultResponse.text();
-        if (!resultResponse.ok) {
-          throw new Error(`Failed to fetch fal.ai result (${resultResponse.status}): ${resultText}`);
-        }
-
-        let resultData = {};
-        try {
-          resultData = JSON.parse(resultText || "{}");
-        } catch {
-          throw new Error("fal.ai result response returned invalid JSON");
-        }
-
-        const output = resultData.output || resultData.data || resultData;
-        const videoUrl =
-          output?.video?.url ||
-          output?.video_url ||
-          output?.url ||
-          output?.video?.[0]?.url ||
-          output?.videos?.[0]?.url ||
-          (Array.isArray(output) && typeof output[0] === "string" ? output[0] : "");
-
+      if (status === "done") {
         if (!videoUrl) {
-          throw new Error("fal.ai completed but no video URL found in result");
+          throw new Error("JSON2Video render finished but no video URL was returned.");
         }
-
-        console.log("✅ [GenVideo] Video generated:", videoUrl);
+        console.log("✅ [JSON2Video] Video generated:", videoUrl);
         return videoUrl;
       }
 
-      if (status === "FAILED" || status === "ERROR" || status === "CANCELED" || status === "CANCELLED") {
-        const reason = statusData.error || statusData.message || statusText || "Unknown fal.ai failure";
-        throw new Error(`fal.ai task failed: ${reason}`);
+      if (status === "error") {
+        const reason = movie.message || statusData.message || statusText || "Unknown JSON2Video failure";
+        throw new Error(`JSON2Video render failed: ${toErrorMessage(reason)}`);
       }
     }
 
-    throw new Error("Video generation timed out after 5 minutes");
+    throw new Error("JSON2Video render timed out while waiting for result.");
   } catch (error) {
-    console.error("❌ Runaway Generation Error:", error.message);
-    throw error;
+    const message = toErrorMessage(error, "JSON2Video generation failed.");
+    console.error("❌ JSON2Video Generation Error:", message);
+    throw new Error(message);
   }
 };
 
@@ -1763,6 +1791,72 @@ const generateVideoWithNovita = async (prompt, duration = 10, aspectRatio = "16:
   throw new Error("Novita task timed out while waiting for result.");
 };
 
+const rewritePromptWithOpenRouter = async (prompt, duration = 10, aspectRatio = "16:9") => {
+  if (!openRouterApiKey) {
+    throw new Error("Missing OPENROUTER_API_KEY. Add it to your environment.");
+  }
+
+  const requestBody = {
+    model: openRouterModel,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a cinematic prompt engineer for text-to-video. Rewrite user prompts into one concise, high-quality production prompt. Keep it under 350 characters, include camera motion, lighting, style cues, and avoid unsafe content. Return only the rewritten prompt text.",
+      },
+      {
+        role: "user",
+        content: `Prompt: ${String(prompt || "").trim()}\nDuration: ${Math.max(3, Math.min(180, Number(duration) || 10))}s\nAspect ratio: ${String(aspectRatio || "16:9")}`,
+      },
+    ],
+    temperature: 0.7,
+    max_tokens: 220,
+  };
+
+  const response = await fetch(`${openRouterBaseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openRouterApiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": openRouterSiteUrl,
+      "X-Title": openRouterAppName,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  const raw = await response.text();
+  if (!response.ok) {
+    throw new Error(`OpenRouter request failed (${response.status}): ${raw}`);
+  }
+
+  let data = {};
+  try {
+    data = JSON.parse(raw || "{}");
+  } catch {
+    throw new Error("OpenRouter returned invalid JSON.");
+  }
+
+  const rewritten =
+    data?.choices?.[0]?.message?.content ||
+    data?.choices?.[0]?.text ||
+    "";
+
+  const cleaned = String(rewritten || "").trim();
+  if (!cleaned) {
+    throw new Error("OpenRouter returned an empty prompt.");
+  }
+
+  return cleaned;
+};
+
+const generateVideoWithOpenRouter = async (prompt, duration = 10, aspectRatio = "16:9") => {
+  console.log("🧠 [OpenRouter] Rewriting prompt before generation...");
+  const rewrittenPrompt = await rewritePromptWithOpenRouter(prompt, duration, aspectRatio);
+  console.log("✅ [OpenRouter] Prompt rewrite complete");
+
+  return await generateVideoWithJson2Video(rewrittenPrompt, duration, aspectRatio);
+};
+
 const buildEffectPromptSnippet = (effects) => {
   if (!effects || effects.selectedEffect === "none") {
     return "";
@@ -1839,15 +1933,22 @@ app.post("/generate", async (req, res) => {
       console.log("✨ [API] Requested effect:", effects.selectedEffect);
     }
 
-    // 🔥 STEP 1: GENERATE VIDEO WITH RUNAWAY API
+    // 🔥 STEP 1: GENERATE VIDEO
     const fileName = `output-${Date.now()}.mp4`;
     const outputPath = `outputs/${fileName}`;
     
     let videoUrl = "";
 
-    // AI-generated flow uses Runway only (env key: RUNAWAY_API_KEY)
+    const requestedProvider = String(req?.body?.provider || videoProvider || "json2video").toLowerCase();
+
     console.log("🎬 [API] Starting video generation...");
-    videoUrl = await generateVideoWithRunaway(finalPrompt, seconds, frame || "16:9");
+    if (requestedProvider === "novita") {
+      videoUrl = await generateVideoWithNovita(finalPrompt, seconds, frame || "16:9");
+    } else if (requestedProvider === "openrouter") {
+      videoUrl = await generateVideoWithOpenRouter(finalPrompt, seconds, frame || "16:9");
+    } else {
+      videoUrl = await generateVideoWithJson2Video(finalPrompt, seconds, frame || "16:9");
+    }
     console.log("✅ [API] Video generated successfully");
 
     // 🔥 STEP 2: UPLOAD TO SUPABASE STORAGE
@@ -1875,7 +1976,7 @@ app.post("/generate", async (req, res) => {
     });
 
   } catch (error) {
-    const errorMessage = error?.message || "Video generation failed. Please try again.";
+    const errorMessage = toErrorMessage(error, "Video generation failed. Please try again.");
     console.error("❌ [API] Error:", errorMessage);
     
     res.status(500).json({

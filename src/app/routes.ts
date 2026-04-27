@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router";
-import { VideoTypePage } from "./pages/video-type-page";
-import { FeaturesSelectionPage } from "./pages/features-selection";
-import { HomePage } from "./pages/home-page";
+import { VideoTypePage } from "./main/video-type-page";
+import { FeaturesSelectionPage } from "./main/features-selection";
+import { HomePage } from "./main/home-page";
 import { AuthCallbackPage } from "./pages/Auth/auth-callback";
 import { AIGenerativeVideoPage } from "./pages/AI-Video_Generation/ai-generative-video";
 import { ProcessingPage } from "./pages/AI-Video_Generation/processing";
