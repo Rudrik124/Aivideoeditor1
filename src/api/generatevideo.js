@@ -1,5 +1,3 @@
-const apiKey = import.meta.env.VITE_JSON2VIDEO_API_KEY;
-
 export const generateVideo = async ({
   prompt,
   duration = 10,
@@ -10,10 +8,6 @@ export const generateVideo = async ({
   effects,
   provider,
 } = {}) => {
-  if (!apiKey) {
-    throw new Error("Missing VITE_JSON2VIDEO_API_KEY in .env.");
-  }
-
   const response = await fetch("/api/generate", {
     method: "POST",
     headers: {
