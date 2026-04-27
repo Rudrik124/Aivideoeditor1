@@ -1626,7 +1626,12 @@ const generateVideoWithJson2Video = async (prompt, duration = 10, aspectRatio = 
       throw new Error("JSON2Video create response returned invalid JSON.");
     }
 
-    const projectId = createData.project || createData?.movie?.project || createData?.data?.project;
+    console.log("🎬 [JSON2Video] Create response parsed:", createData);
+
+    const projectId =
+      createData.project ||
+      createData.movie?.project ||
+      createData.data?.project;
     if (!projectId) {
       throw new Error("JSON2Video create response missing project id.");
     }
@@ -1656,22 +1661,42 @@ const generateVideoWithJson2Video = async (prompt, duration = 10, aspectRatio = 
         throw new Error("JSON2Video status response returned invalid JSON.");
       }
 
-      const movie = statusData.movie || {};
-      const status = String(movie.status || statusData.status || "").toLowerCase();
-      const videoUrl = movie.url || statusData.url || "";
+      console.log(`📡 [JSON2Video] Status response (${attempt}/${maxAttempts}):`, statusData);
+
+      const movie = statusData.movie || statusData.data?.movie || {};
+      const status = String(
+        movie.status ||
+        statusData.status ||
+        statusData.data?.status ||
+        "",
+      ).toLowerCase();
+      const videoUrl =
+        statusData.url ||
+        movie.url ||
+        statusData.data?.url ||
+        extractOutputUrl(statusData.output) ||
+        extractOutputUrl(movie.output) ||
+        extractOutputUrl(statusData.data?.output) ||
+        "";
 
       console.log(`⏳ [JSON2Video] Task status (${attempt}/${maxAttempts}):`, status || "unknown");
 
-      if (status === "done") {
+      if (status === "completed" || status === "done") {
         if (!videoUrl) {
-          throw new Error("JSON2Video render finished but no video URL was returned.");
+          console.log("⏳ [JSON2Video] Render marked complete but URL is not ready yet; continuing to poll.");
+          continue;
         }
         console.log("✅ [JSON2Video] Video generated:", videoUrl);
         return videoUrl;
       }
 
-      if (status === "error") {
-        const reason = movie.message || statusData.message || statusText || "Unknown JSON2Video failure";
+      if (status === "failed" || status === "error") {
+        const reason =
+          movie.message ||
+          statusData.message ||
+          statusData.error ||
+          statusText ||
+          "Unknown JSON2Video failure";
         throw new Error(`JSON2Video render failed: ${toErrorMessage(reason)}`);
       }
     }
