@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { motion } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import { Film, Wand2 } from "lucide-react";
+import { buildApiUrl } from "../../../lib/api";
 
 type ReferenceVideoConfig = {
   prompt: string;
@@ -50,7 +51,7 @@ export function ReferenceVideoProcessingScreen() {
           formData.append("audio", state.audioFile);
         }
 
-        const response = await fetch("/api/generate-from-media", {
+        const response = await fetch(buildApiUrl("/api/generate-from-media"), {
           method: "POST",
           body: formData,
         });

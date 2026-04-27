@@ -1,3 +1,5 @@
+import { buildApiUrl } from "../lib/api";
+
 export const generateVideo = async ({
   prompt,
   duration = 10,
@@ -8,7 +10,7 @@ export const generateVideo = async ({
   effects,
   provider,
 } = {}) => {
-  const response = await fetch("/api/generate", {
+  const response = await fetch(buildApiUrl("/api/generate"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router";
-import { 
+import {
   Zap, 
   Activity, 
   Loader2, 
@@ -13,6 +13,7 @@ import {
   X
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { buildApiUrl } from "../../../lib/api";
 
 export function QuickEditProcessingScreen() {
   const navigate = useNavigate();
@@ -184,7 +185,7 @@ export function QuickEditProcessingScreen() {
         const timeoutMs = 180000; // 3 minutes
         const timeoutHandle = window.setTimeout(() => controller.abort(), timeoutMs);
 
-        const response = await fetch("/api/generate-from-media", {
+        const response = await fetch(buildApiUrl("/api/generate-from-media"), {
           method: "POST",
           body: formData,
           headers: {

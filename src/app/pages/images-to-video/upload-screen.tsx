@@ -25,6 +25,7 @@ import {
 import { Label } from "../../components/ui/label";
 import { Switch } from "../../components/ui/switch";
 import { PremiumModal } from "../../components/premium-modal";
+import { buildApiUrl } from "../../../lib/api";
 
 const EmojiIcon = ({ icon: Icon, size = "md", className = "" }: { icon: LucideIcon, size?: "sm" | "md" | "lg" | "xl", className?: string }) => {
   const sizeClasses = {
@@ -176,7 +177,7 @@ export function ImagesToVideoUploadScreen() {
         formData.append("audio", audioFile);
       }
 
-      const response = await fetch("/api/generate-from-media", {
+      const response = await fetch(buildApiUrl("/api/generate-from-media"), {
         method: "POST",
         body: formData,
       });
