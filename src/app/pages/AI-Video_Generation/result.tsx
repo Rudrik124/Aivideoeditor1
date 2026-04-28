@@ -110,15 +110,15 @@ export function ResultPage() {
            initial={{ opacity: 0, scale: 0.95 }}
            animate={{ opacity: 1, scale: 1 }}
            transition={{ delay: 0.1 }}
-           className="bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-6 md:p-8 mb-10 overflow-hidden relative"
+           className="w-full bg-[#1a1b2e]/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(11,13,31,0.5)] border border-[#3f4a67]/50 p-6 md:p-8 overflow-hidden relative"
         >
           {videoUrl ? (
-            <div className="relative rounded-xl overflow-hidden border border-[#3f4a67]/50 shadow-inner bg-[#0b0d1f]">
+            <div className="w-full aspect-video overflow-hidden rounded-xl border border-[#3f4a67]/50 shadow-inner bg-black relative">
               <video
                 src={videoUrl}
                 controls
                 autoPlay
-                className="w-full relative z-10"
+                className="w-full h-full object-cover relative z-10"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-cyan-500/5 mix-blend-overlay pointer-events-none z-20" />
             </div>

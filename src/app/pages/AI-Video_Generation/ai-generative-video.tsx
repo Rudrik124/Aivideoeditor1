@@ -139,11 +139,9 @@ export function AIGenerativeVideoPage() {
     setLoadingMessage("Generating your video...");
 
     try {
-      console.log("🎬 Building request with:", {
-        prompt,
-        duration: durationMinutes * 60 + durationSeconds,
-        frame: selectedRatio,
-      });
+      console.log("📝 Current prompt from user input:", prompt);
+      console.log("⏱️  Duration:", durationMinutes * 60 + durationSeconds, "seconds");
+      console.log("📐 Frame ratio:", selectedRatio);
 
       const requestPayload = {
         prompt: prompt.trim(),
@@ -154,7 +152,8 @@ export function AIGenerativeVideoPage() {
         watermark,
       };
 
-      console.log("📤 Sending JSON2Video request with:", JSON.stringify(requestPayload));
+      console.log("📤 [FINAL REQUEST] Sending to backend with prompt:", requestPayload.prompt);
+      console.log("📤 [FULL PAYLOAD]", JSON.stringify(requestPayload, null, 2));
       const data = await generateVideo(requestPayload);
 
       console.log("✅ Generation successful:", data.video);

@@ -1,3 +1,8 @@
+console.log("🔥 THIS IS MY SERVER FILE RUNNING");
+console.log("SERVER FILE LOADED");
+console.log("🔥 NEW SERVER CODE RUNNING");
+process.on("uncaughtException", console.error);
+process.on("unhandledRejection", console.error);
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -9,6 +14,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import dotenv from "dotenv";
+
+dotenv.config();
 
 const loadEnvFiles = () => {
   dotenv.config({ path: "./.env", override: false });
@@ -134,6 +141,9 @@ const novitaApiKey = readEnv("NOVITA_API_KEY") || "";
 const novitaApiUrl = readEnv("NOVITA_API_URL") || "";
 const videoProvider = (readEnv("VIDEO_PROVIDER") || "json2video").toLowerCase();
 const novitaModelName = readEnv("NOVITA_MODEL_NAME") || "";
+const replicateApiToken = readEnv("REPLICATE_API_TOKEN") || "";
+const replicateApiUrl = (readEnv("REPLICATE_API_URL") || "https://api.replicate.com/v1").replace(/\/$/, "");
+const replicateModel = readEnv("REPLICATE_MODEL") || "bytedance/seedance-1-lite";
 const openRouterApiKey = readEnv("OPENROUTER_API_KEY") || "";
 const openRouterModel = readEnv("OPENROUTER_MODEL") || "openai/gpt-4o-mini";
 const openRouterBaseUrl = (readEnv("OPENROUTER_BASE_URL") || "https://openrouter.ai/api/v1").replace(/\/$/, "");
@@ -155,7 +165,12 @@ if (USE_MOCK_API) {
 
 // ✅ TEST ROUTE
 app.get("/", (req, res) => {
-  res.send("Backend running 🚀");
+  res.send("Server is alive");
+});
+
+app.get("/test", (req, res) => {
+  console.log("✅ TEST ROUTE HIT");
+  res.send("OK");
 });
 
 // ✅ VIDEO PROCESS FUNCTION (uploaded source - trims/exports video)
@@ -1521,7 +1536,167 @@ const mergeSegmentsWithTransitions = async (segmentPaths, transitions, outputPat
   });
 };
 
-const buildJson2VideoMovie = (prompt, duration = 10, aspectRatio = "16:9") => {
+/**
+ * Generates visual scenes from a text prompt
+ * @param {string} prompt - User prompt
+ * @returns {Array} Array of 3 scene objects with visual, keywords, duration
+ */
+const generateScenesFromPrompt = (prompt) => {
+  const STOPWORDS = new Set([
+    'a','an','the','and','or','of','in','on','at','with','to','for','by','from','is','are','was','were','that','this','these','those','as','it','its','be','being','have','has','had','but','not','into','while','during','my','your','their','its'
+  ]);
+
+  // Words to exclude from image search (descriptive, not searchable)
+  const EXCLUDE_WORDS = new Set([
+    'cinematic', 'realistic', 'lighting', 'ultra', 'detailed', 'quality', 'smooth',
+    'volumetric', 'motion', 'dynamic', 'dramatic', 'stunning', 'beautiful', 'amazing',
+    'high', 'ray', 'trace', 'render', 'style', 'effect', 'texture', 'ambient'
+  ]);
+
+  const extractKeywords = (text) => {
+    const words = (text || '').toLowerCase().match(/[a-z0-9]+/g) || [];
+    const seen = new Set();
+    const out = [];
+    for (const w of words) {
+      if (STOPWORDS.has(w) || EXCLUDE_WORDS.has(w)) continue;
+      if (!seen.has(w)) {
+        seen.add(w);
+        out.push(w);
+      }
+      if (out.length >= 6) break;
+    }
+    return out;
+  };
+
+  // Extract only 2-3 main keywords for image search
+  const extractSearchKeywords = (text, actionWord, locationWord) => {
+    const keywords = extractKeywords(text);
+    // Prioritize location, action, and main subject
+    const mainKeywords = [];
+    
+    if (locationWord) mainKeywords.push(locationWord);
+    if (actionWord) {
+      const actionBase = actionWord.replace(/ing$/, '');
+      mainKeywords.push(actionBase);
+    }
+    
+    // Add remaining keywords (max 3 total)
+    for (const k of keywords) {
+      if (!mainKeywords.includes(k) && mainKeywords.length < 3) {
+        mainKeywords.push(k);
+      }
+    }
+    
+    return mainKeywords.slice(0, 3).join(' ') || 'technology';
+  };
+
+  const findAction = (text) => {
+    const m = text.match(/\b\w+ing(?: \w+){0,2}\b/i);
+    return m ? m[0].toLowerCase() : null;
+  };
+
+  const findLocation = (text) => {
+    const m = text.match(/(?:in|on|at|inside|within|near) (?:a |an |the )?([\w\s]{1,50})/i);
+    if (!m) return null;
+    return m[1].split(/[.,;]\s*/)[0].trim().toLowerCase();
+  };
+
+  if (!prompt || typeof prompt !== 'string') return [];
+  
+  const normalized = prompt.trim();
+  const action = findAction(normalized);
+  const location = findLocation(normalized);
+  
+  // Generate search-friendly keywords (2-3 main terms)
+  const searchKeywords = extractSearchKeywords(normalized, action, location);
+  
+  // Full keywords for visual descriptions
+  const keywordsArr = extractKeywords(normalized);
+  const subject = keywordsArr.slice(0, 3).join(' ') || normalized.toLowerCase();
+
+  // Scene 1: main subject performing primary action
+  const scene1Visual = action
+    ? `${subject} ${action}`
+    : location
+    ? `${subject} in ${location}`
+    : `${subject} in a realistic setting`;
+
+  // Scene 2: interaction or close-up
+  const actorHints = ['student', 'students', 'people', 'person', 'child', 'children', 'man', 'woman', 'group'];
+  const actor = keywordsArr.find(k => actorHints.includes(k));
+  const scene2Visual = actor
+    ? `${actor} interacting with ${subject}`
+    : action
+    ? `close-up of ${subject} ${action}`
+    : `close-up of ${subject} with natural detail`;
+
+  // Scene 3: wide environment shot
+  const scene3Visual = location
+    ? `wide view of ${subject} in ${location}`
+    : `wide view showing ${subject} within its environment`;
+
+  console.log(`🔍 [Scenes] Generated keywords for image search: "${searchKeywords}"`);
+
+  return [
+    { visual: scene1Visual.toLowerCase(), keywords: searchKeywords, duration: 5 },
+    { visual: scene2Visual.toLowerCase(), keywords: searchKeywords, duration: 5 },
+    { visual: scene3Visual.toLowerCase(), keywords: searchKeywords, duration: 5 }
+  ];
+};
+
+/**
+ * Converts scenes to image URLs by searching Unsplash
+ * @param {Array} scenes - Array of scene objects
+ * @returns {Promise<Array>} Array of video segments with image URLs
+ */
+const scenesToImages = async (scenes) => {
+  const results = [];
+  
+  for (const scene of scenes) {
+    try {
+      const searchResponse = await fetch("http://localhost:5000/search-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: scene.keywords || "technology" })
+      });
+
+      if (!searchResponse.ok) {
+        throw new Error(`Search failed: ${searchResponse.status}`);
+      }
+
+      const searchData = await searchResponse.json();
+      const imageUrl = searchData.image || `https://picsum.photos/seed/${String(scene.keywords || "technology").replace(/\s+/g, "-")}/1600/900`;
+
+      results.push({
+        type: "image",
+        src: imageUrl,
+        duration: scene.duration || 5
+      });
+
+      console.log(`✅ [ScenesToImages] Scene image: ${imageUrl}`);
+    } catch (error) {
+      console.error(`❌ [ScenesToImages] Error searching image:`, toErrorMessage(error));
+      // Fallback to picsum
+      const fallbackUrl = `https://picsum.photos/seed/${String(scene.keywords || "technology").replace(/\s+/g, "-")}/1600/900`;
+      results.push({
+        type: "image",
+        src: fallbackUrl,
+        duration: scene.duration || 5
+      });
+    }
+  }
+  
+  return results;
+};
+
+/**
+ * Builds JSON2Video payload using visual scenes instead of text overlays
+ * @param {string} prompt - User prompt
+ * @param {number} duration - Video duration in seconds
+ * @param {string} aspectRatio - Video aspect ratio
+ * @returns {Promise<Object>} JSON2Video API payload
+ */
+const buildJson2VideoMovie = async (prompt, duration = 10, aspectRatio = "16:9") => {
   const normalizedPrompt = String(prompt || "").trim();
   const safeDuration = Math.max(3, Math.min(180, Number(duration) || 10));
   const ratioMap = {
@@ -1535,37 +1710,49 @@ const buildJson2VideoMovie = (prompt, duration = 10, aspectRatio = "16:9") => {
   };
   const size = ratioMap[String(aspectRatio || "16:9")] || ratioMap["16:9"];
 
+  // Generate visual scenes from prompt
+  const scenes = generateScenesFromPrompt(normalizedPrompt);
+  
+  // Convert scenes to image elements (async - searches Unsplash)
+  const videoSegments = await scenesToImages(scenes);
+  
+  // Distribute duration across segments
+  const durationPerSegment = safeDuration / videoSegments.length;
+
+  console.log("🎬 [Video] Generated scenes from prompt:");
+  console.log(`📊 [Video] Total segments: ${videoSegments.length}, Duration per segment: ${durationPerSegment}s`);
+  videoSegments.forEach((segment, i) => {
+    console.log(`  Image ${i + 1}: ${segment.src}`);
+  });
+
+  // Build payload with SEPARATE scenes for each image
+  // Each scene has TWO layers: blurred background + main image
   return {
     width: size.width,
     height: size.height,
     quality: "high",
     draft: false,
-    scenes: [
-      {
-        duration: safeDuration,
-        "background-color": "#0b1020",
-        elements: [
-          {
-            type: "text",
-            style: "003",
-            text: normalizedPrompt,
-            duration: safeDuration,
-            settings: {
-              color: "#F8FAFC",
-              "font-family": "Montserrat",
-              "font-size": size.width >= size.height ? "72px" : "60px",
-              "font-weight": "800",
-              "text-align": "center",
-              "vertical-position": "center",
-              "horizontal-position": "center",
-              padding: "64px",
-              shadow: 2,
-            },
-            width: Math.round(size.width * 0.8),
-          },
-        ],
-      },
-    ],
+    scenes: videoSegments.map(segment => ({
+      duration: durationPerSegment,
+      elements: [
+        // Layer 1: Blurred background to fill black edges
+        {
+          type: "image",
+          src: segment.src,
+          duration: durationPerSegment,
+          resize: "cover",
+          blur: 20,
+          opacity: 0.5
+        },
+        // Layer 2: Main image on top
+        {
+          type: "image",
+          src: segment.src,
+          duration: durationPerSegment,
+          resize: "contain"
+        }
+      ]
+    })),
   };
 };
 
@@ -1598,9 +1785,10 @@ const generateVideoWithJson2Video = async (prompt, duration = 10, aspectRatio = 
   console.log("🔑 [JSON2Video] API Key length:", activeJson2VideoApiKey.length);
 
   try {
-    const requestBody = buildJson2VideoMovie(prompt, duration, aspectRatio);
+    const requestBody = await buildJson2VideoMovie(prompt, duration, aspectRatio);
 
     console.log("📝 [JSON2Video] Request body:", JSON.stringify(requestBody));
+    console.log("FINAL PAYLOAD:", JSON.stringify(requestBody, null, 2));
 
     const createResponse = await fetch(`${json2VideoApiUrl}/movies`, {
       method: "POST",
@@ -1833,6 +2021,111 @@ const generateVideoWithNovita = async (prompt, duration = 10, aspectRatio = "16:
   throw new Error("Novita task timed out while waiting for result.");
 };
 
+const generateVideoWithReplicate = async (prompt, duration = 10, aspectRatio = "16:9") => {
+  if (!replicateApiToken) {
+    throw new Error("Missing REPLICATE_API_TOKEN. Add it to your environment.");
+  }
+
+  const [modelOwner, modelName] = String(replicateModel || "").split("/");
+  if (!modelOwner || !modelName) {
+    throw new Error("REPLICATE_MODEL must look like owner/name.");
+  }
+
+  const safeDuration = Math.max(3, Math.min(12, Number(duration) || 5));
+  const safeAspectRatio = String(aspectRatio || "16:9");
+  const resolution = safeAspectRatio === "9:16" ? "720p" : "720p";
+
+  console.log("🎬 [Replicate] Starting render...", {
+    model: `${modelOwner}/${modelName}`,
+    duration: safeDuration,
+    aspectRatio: safeAspectRatio,
+  });
+
+  const createResponse = await fetch(
+    `${replicateApiUrl}/models/${encodeURIComponent(modelOwner)}/${encodeURIComponent(modelName)}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${replicateApiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        input: {
+          prompt: String(prompt || "").trim(),
+          duration: safeDuration,
+          aspect_ratio: safeAspectRatio,
+          resolution,
+          fps: 24,
+          camera_fixed: false,
+        },
+      }),
+    },
+  );
+
+  const createText = await createResponse.text();
+  if (!createResponse.ok) {
+    throw new Error(`Replicate create request failed (${createResponse.status}): ${toErrorMessage(createText)}`);
+  }
+
+  let prediction = {};
+  try {
+    prediction = JSON.parse(createText || "{}");
+  } catch {
+    throw new Error("Replicate create response returned invalid JSON.");
+  }
+
+  console.log("📥 [Replicate] Create response:", prediction);
+
+  const predictionId = prediction?.id;
+  const predictionUrl = prediction?.urls?.get || (predictionId ? `${replicateApiUrl}/predictions/${encodeURIComponent(predictionId)}` : "");
+  if (!predictionUrl) {
+    throw new Error("Replicate create response missing prediction URL.");
+  }
+
+  const maxAttempts = 90;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await sleep(5000);
+
+    const statusResponse = await fetch(predictionUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${replicateApiToken}`,
+      },
+    });
+
+    const statusText = await statusResponse.text();
+    if (!statusResponse.ok) {
+      throw new Error(`Replicate status check failed (${statusResponse.status}): ${toErrorMessage(statusText)}`);
+    }
+
+    let statusData = {};
+    try {
+      statusData = JSON.parse(statusText || "{}");
+    } catch {
+      throw new Error("Replicate status response returned invalid JSON.");
+    }
+
+    const status = String(statusData?.status || "").toLowerCase();
+    const videoUrl = extractOutputUrl(statusData?.output);
+
+    console.log(`⏳ [Replicate] Task status (${attempt}/${maxAttempts}):`, status || "unknown");
+
+    if (status === "succeeded") {
+      if (!videoUrl) {
+        throw new Error("Replicate render succeeded but returned no video URL.");
+      }
+      console.log("✅ [Replicate] Video generated:", videoUrl);
+      return videoUrl;
+    }
+
+    if (status === "failed" || status === "canceled") {
+      throw new Error(`Replicate render failed: ${toErrorMessage(statusData?.error || statusText)}`);
+    }
+  }
+
+  throw new Error("Replicate render timed out while waiting for result.");
+};
+
 const rewritePromptWithOpenRouter = async (prompt, duration = 10, aspectRatio = "16:9") => {
   if (!openRouterApiKey) {
     throw new Error("Missing OPENROUTER_API_KEY. Add it to your environment.");
@@ -1896,6 +2189,10 @@ const generateVideoWithOpenRouter = async (prompt, duration = 10, aspectRatio = 
   const rewrittenPrompt = await rewritePromptWithOpenRouter(prompt, duration, aspectRatio);
   console.log("✅ [OpenRouter] Prompt rewrite complete");
 
+  if (videoProvider === "replicate") {
+    return await generateVideoWithReplicate(rewrittenPrompt, duration, aspectRatio);
+  }
+
   return await generateVideoWithJson2Video(rewrittenPrompt, duration, aspectRatio);
 };
 
@@ -1953,6 +2250,89 @@ const buildEffectPromptSnippet = (effects) => {
   }
 };
 
+// ✅ IMAGE SEARCH ROUTE - Search Unsplash for images
+app.post("/search-image", async (req, res) => {
+  const { query } = req.body;
+
+  try {
+    if (!query || !String(query).trim()) {
+      return res.status(400).json({ success: false, error: "Query is required" });
+    }
+
+    const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (!unsplashAccessKey) {
+      console.warn("⚠️ [Unsplash] Missing UNSPLASH_ACCESS_KEY, using fallback image");
+      return res.json({
+        success: true,
+        image: `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1280/720`
+      });
+    }
+
+    console.log("🔍 [Unsplash] Searching for landscape images:", query);
+
+    // Request multiple results to find a true landscape image
+    const searchResponse = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=10&orientation=landscape&content_filter=high`,
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Client-ID ${unsplashAccessKey}`,
+          "Accept-Version": "v1"
+        }
+      }
+    );
+
+    if (!searchResponse.ok) {
+      throw new Error(`Unsplash API error: ${searchResponse.status}`);
+    }
+
+    const searchData = await searchResponse.json();
+    const results = searchData.results || [];
+
+    // Filter for true landscape images (width >= height)
+    let selectedImage = null;
+    for (const result of results) {
+      const width = result.width;
+      const height = result.height;
+      const imageUrl = result.urls?.regular;
+
+      if (!imageUrl) continue;
+
+      // Validate that image is truly landscape (width >= height)
+      if (width >= height) {
+        console.log(`✅ [Unsplash] Found landscape image (${width}x${height}): ${result.alt_description || query}`);
+        selectedImage = imageUrl;
+        break;
+      } else {
+        console.log(`⏭️  [Unsplash] Skipping portrait image (${width}x${height}), continuing search...`);
+      }
+    }
+
+    if (!selectedImage) {
+      console.warn("⚠️ [Unsplash] No landscape image found after checking all results, using fallback");
+      return res.json({
+        success: true,
+        image: `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1280/720`
+      });
+    }
+
+    // Append parameters to ensure correct aspect ratio (16:9) and size
+    const optimizedImageUrl = `${selectedImage}&w=1280&h=720&fit=crop`;
+
+    console.log("✅ [Unsplash] Optimized image URL:", optimizedImageUrl);
+    res.json({ success: true, image: optimizedImageUrl });
+
+  } catch (error) {
+    console.error("❌ [Unsplash] Error:", toErrorMessage(error));
+    // Fallback to picsum if Unsplash fails
+    const query = req.body.query || "technology";
+    res.json({
+      success: true,
+      image: `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1600/900`
+    });
+  }
+});
+
 // ✅ MAIN ROUTE - API Video Generation
 // Accepts JSON with: { prompt, duration, frame }
 app.post("/generate", async (req, res) => {
@@ -1984,7 +2364,9 @@ app.post("/generate", async (req, res) => {
     const requestedProvider = String(req?.body?.provider || videoProvider || "json2video").toLowerCase();
 
     console.log("🎬 [API] Starting video generation...");
-    if (requestedProvider === "novita") {
+    if (requestedProvider === "replicate") {
+      videoUrl = await generateVideoWithReplicate(finalPrompt, seconds, frame || "16:9");
+    } else if (requestedProvider === "novita") {
       videoUrl = await generateVideoWithNovita(finalPrompt, seconds, frame || "16:9");
     } else if (requestedProvider === "openrouter") {
       videoUrl = await generateVideoWithOpenRouter(finalPrompt, seconds, frame || "16:9");
@@ -2597,5 +2979,7 @@ app.post(
 
 // ✅ START SERVER
 app.listen(5000, () => {
+  console.log("SERVER LISTENING");
+  console.log("SERVER RUNNING");
   console.log("✅ Server running on http://localhost:5000");
 });
