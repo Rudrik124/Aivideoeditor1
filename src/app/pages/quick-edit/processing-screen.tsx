@@ -235,7 +235,7 @@ export function QuickEditProcessingScreen() {
             });
           }, 1200);
         } else if (!isCanceled) {
-          setError(data.error || "The AI encountered an error while processing your request.");
+          setError(typeof data.error === "string" ? data.error : "The AI encountered an error while processing your request.");
         }
       } catch (err: any) {
         if (!isCanceled) {

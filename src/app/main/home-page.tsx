@@ -18,7 +18,8 @@ import {
 	LogOut,
 	User,
 	ChevronDown,
-	Image as ImageIcon
+	Image as ImageIcon,
+	Menu
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
@@ -209,48 +210,63 @@ export function HomePage() {
 					</motion.div>
 
 					<div className="flex items-center gap-6">
-						{isLoggedIn ? (
-							<div className="relative">
-								<motion.button
-									whileHover={{ scale: 1.05 }}
-									whileTap={{ scale: 0.95 }}
-									onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-									className="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-white group shadow-xl"
+						<button 
+							className="md:hidden p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/70 hover:text-white"
+							onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+						>
+							<Menu className="w-6 h-6" />
+						</button>
+						<div className="hidden md:flex items-center gap-6">
+							{isLoggedIn ? (
+								<div className="relative">
+									<motion.button
+										whileHover={{ scale: 1.05 }}
+										whileTap={{ scale: 0.95 }}
+										onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+										className="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 transition-all text-white group shadow-xl"
+									>
+										<div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+											<User className="w-4 h-4 text-[#0b0d1f]" />
+										</div>
+										<span className="text-sm font-bold tracking-tight">{userName}</span>
+										<ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+									</motion.button>
+								</div>
+							) : (
+								<button className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">Documentation</button>
+							)}
+						</div>
+						
+						<AnimatePresence>
+							{isUserMenuOpen && (
+								<motion.div
+									initial={{ opacity: 0, y: 10, scale: 0.95 }}
+									animate={{ opacity: 1, y: 0, scale: 1 }}
+									exit={{ opacity: 0, y: 10, scale: 0.95 }}
+									className="absolute right-4 top-24 md:right-auto md:top-auto md:mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
 								>
-									<div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-										<User className="w-4 h-4 text-[#0b0d1f]" />
+									<div className="p-2">
+										{!isLoggedIn && (
+											<button className="w-full md:hidden flex items-center gap-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 transition-all text-sm font-bold tracking-widest">
+												<span>Documentation</span>
+											</button>
+										)}
+										{isLoggedIn && (
+											<button 
+												onClick={() => {
+													logout();
+													setIsUserMenuOpen(false);
+												}}
+												className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all text-sm font-bold uppercase tracking-widest group"
+											>
+												<LogOut className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+												<span>Logout</span>
+											</button>
+										)}
 									</div>
-									<span className="text-sm font-bold tracking-tight">{userName}</span>
-									<ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-								</motion.button>
-
-								<AnimatePresence>
-									{isUserMenuOpen && (
-										<motion.div
-											initial={{ opacity: 0, y: 10, scale: 0.95 }}
-											animate={{ opacity: 1, y: 0, scale: 1 }}
-											exit={{ opacity: 0, y: 10, scale: 0.95 }}
-											className="absolute right-0 mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
-										>
-											<div className="p-2">
-												<button 
-													onClick={() => {
-														logout();
-														setIsUserMenuOpen(false);
-													}}
-													className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all text-sm font-bold uppercase tracking-widest group"
-												>
-													<LogOut className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-													<span>Logout</span>
-												</button>
-											</div>
-										</motion.div>
-									)}
-								</AnimatePresence>
-							</div>
-						) : (
-							<button className="text-sm font-semibold text-gray-400 hover:text-white transition-colors">Documentation</button>
-						)}
+								</motion.div>
+							)}
+						</AnimatePresence>
 					</div>
 				</div>
 
@@ -258,7 +274,7 @@ export function HomePage() {
 				<motion.div
 					initial={{ opacity: 0, x: -20 }}
 					animate={{ opacity: 1, x: 0 }}
-					transition={{ duration: 0.5 }}
+					transition={{ duration: 0.25 }}
 					className="mb-8"
 				>
 					<button
@@ -273,7 +289,7 @@ export function HomePage() {
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.6 }}
+					transition={{ duration: 0.3 }}
 					className="text-center mb-12"
 				>
 					<div className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10 mb-6">
@@ -281,7 +297,7 @@ export function HomePage() {
 						<span className="text-sm text-gray-400">Powered by AI Video Engine v2.0</span>
 					</div>
 
-					<h1 className="text-5xl md:text-7xl font-black mb-6 bg-gradient-to-r from-white via-cyan-100 to-teal-300 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
+					<h1 className="text-[clamp(2.5rem,8vw,4.5rem)] leading-tight font-black mb-6 bg-gradient-to-r from-white via-cyan-100 to-teal-300 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
 						AI Video Editor
 					</h1>
 
@@ -296,7 +312,7 @@ export function HomePage() {
 				<motion.div
 					initial={{ opacity: 0, y: 30 }}
 					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.6, delay: 0.2 }}
+					transition={{ duration: 0.3, delay: 0.1 }}
 					className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 p-6 md:p-10"
 				>
 					{/* Prompt Input */}

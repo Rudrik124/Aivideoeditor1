@@ -57,18 +57,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ SERVE OUTPUT VIDEOS (IMPORTANT)
-app.use("/videos", express.static("outputs"));
-
 // ✅ SET FFMPEG
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-// ✅ FILE UPLOAD
-const upload = multer({ dest: "uploads/" });
-
-// Ensure working directories exist.
-fs.mkdirSync("uploads", { recursive: true });
-fs.mkdirSync("outputs", { recursive: true });
+// ✅ FILE UPLOAD (uses OS temp directory – no local uploads/ folder)
+const upload = multer({ dest: os.tmpdir() });
 
 const tempWorkDir = path.join(os.tmpdir(), "aivideoeditor1-temp");
 fs.mkdirSync(tempWorkDir, { recursive: true });
@@ -437,19 +430,7 @@ const uploadVideoUrlToSupabase = async (videoUrl, fileName, bucketName = supabas
   if (error) {
     console.error("❌ [STORAGE] uploadVideoUrlToSupabase error:", error.message || error);
 
-    // Fallback: if Supabase upload fails (e.g. bucket not found),
-    // still return a URL from the local /videos static route based
-    // on a temporary output file so the frontend can play it.
-    try {
-      const tempFilePath = `outputs/${fileName}`;
-      fs.writeFileSync(tempFilePath, fileBuffer);
-      const publicUrl = `http://localhost:5000/videos/${fileName}`;
-      console.warn("⚠️ [STORAGE] Falling back to local /videos URL:", publicUrl);
-      return { publicUrl, storagePath: null };
-    } catch (fallbackError) {
-      console.error("❌ [STORAGE] Fallback URL construction failed:", fallbackError.message || fallbackError);
-      throw error;
-    }
+    throw new Error(`Supabase upload failed: ${error.message || error}`);
   }
 
   const playbackUrl = ensurePlayableVideoUrl(
@@ -472,19 +453,7 @@ const uploadToSupabase = async (filePath, fileName, bucketName = supabaseBucket)
 
   if (error) {
     console.error("❌ [STORAGE] uploadToSupabase error:", error.message || error);
-
-    // Fallback: if storage upload fails (e.g. bucket not found),
-    // still return a usable URL from the local /videos static route
-    // so the user gets a playable video.
-    try {
-      const relative = filePath.replace(/^outputs[\\/]/, "");
-      const publicUrl = `http://localhost:5000/videos/${relative}`;
-      console.warn("⚠️ [STORAGE] Falling back to local /videos URL:", publicUrl);
-      return { publicUrl, storagePath: null };
-    } catch (fallbackError) {
-      console.error("❌ [STORAGE] Fallback URL construction failed:", fallbackError.message || fallbackError);
-      throw error;
-    }
+    throw new Error(`Supabase upload failed: ${error.message || error}`);
   }
 
   const playbackUrl = ensurePlayableVideoUrl(
@@ -833,7 +802,7 @@ const generateVeoVideoFromImages = async (
       const videoBuffer = await downloadGeminiFileToBuffer(downloadUri);
 
       const segmentFileName = `veo-segment-${Date.now()}-${index}.mp4`;
-      const segmentPath = `outputs/${segmentFileName}`;
+      const segmentPath = makeTempFilePath(segmentFileName);
       fs.writeFileSync(segmentPath, videoBuffer);
       segmentPaths.push(segmentPath);
       generatedTempFiles.push(segmentPath);
@@ -859,12 +828,12 @@ const generateVeoVideoFromImages = async (
     });
 
     const listFileName = `veo-concat-${Date.now()}.txt`;
-    const listFilePath = `outputs/${listFileName}`;
-    const listContent = baseNameList.map((name) => `file '${name}'`).join("\n");
+    const listFilePath = makeTempFilePath(listFileName);
+    const listContent = segmentPaths.map((p) => `file '${p.replace(/\\/g, "/").replace(/'/g, "'\\''")}'`).join("\n");
     fs.writeFileSync(listFilePath, listContent);
     generatedTempFiles.push(listFilePath);
 
-    const concatenatedPath = `outputs/veo-final-${Date.now()}.mp4`;
+    const concatenatedPath = makeTempFilePath(`veo-final-${Date.now()}.mp4`);
 
     await new Promise((resolve, reject) => {
       ffmpeg()
@@ -2357,7 +2326,6 @@ app.post("/generate", async (req, res) => {
 
     // 🔥 STEP 1: GENERATE VIDEO
     const fileName = `output-${Date.now()}.mp4`;
-    const outputPath = `outputs/${fileName}`;
     
     let videoUrl = "";
 

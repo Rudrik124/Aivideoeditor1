@@ -122,10 +122,10 @@ export function QuickEditResultScreen() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden relative z-10">
+      <main className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden relative z-10">
         
         {/* Left Export Specs */}
-        <aside className="w-80 flex-none border-r border-white/10 bg-[#0b0d1f]/40 backdrop-blur-3xl p-8 flex flex-col gap-8 overflow-y-auto">
+        <aside className="w-full md:w-80 flex-none border-b md:border-b-0 md:border-r border-white/10 bg-[#0b0d1f]/40 backdrop-blur-3xl p-6 md:p-8 flex flex-col gap-8 overflow-y-auto">
            <div className="space-y-4">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Quick Metrics</label>
               <div className="space-y-3">
@@ -153,7 +153,7 @@ export function QuickEditResultScreen() {
         </aside>
 
         {/* Center Dashboard */}
-        <section className="flex-1 p-12 flex flex-col gap-8 bg-black/10 overflow-y-auto">
+        <section className="flex-1 p-6 md:p-12 flex flex-col gap-8 bg-black/10 overflow-y-auto">
            
            <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
@@ -207,7 +207,7 @@ export function QuickEditResultScreen() {
            </div>
 
            {/* Platforms Grid */}
-           <div className="grid grid-cols-3 gap-6">
+           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {[
                 { label: 'YouTube Shorts', icon: Youtube },
                 { label: 'Instagram Reels', icon: Instagram },

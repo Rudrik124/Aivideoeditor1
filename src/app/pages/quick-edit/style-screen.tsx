@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Youtube,
@@ -113,6 +113,21 @@ const textFontOptions = [
   { id: 'vintage', label: 'VINTAGE FONT', family: 'Copperplate, Papyrus, serif' },
 ];
 
+const QUICK_TOOLS = [
+  { id: 'effects', icon: Sparkle, label: 'Effects', color: 'text-amber-300' },
+  { id: 'transitions', icon: Layers, label: 'Transitions', color: 'text-cyan-300' },
+  { id: 'filters', icon: Palette, label: 'Filters', color: 'text-pink-300' },
+  { id: 'speed', icon: Timer, label: 'Speed', color: 'text-cyan-300' },
+  { id: 'trim', icon: Scissors, label: 'Trim', color: 'text-green-300' },
+  { id: 'copy', icon: Copy, label: 'Copy', color: 'text-blue-300' },
+  { id: 'text-tool', icon: Type, label: 'Text', color: 'text-purple-300' },
+  { id: 'rotate', icon: RotateCw, label: 'Rotate', color: 'text-teal-300' },
+  { id: 'volume', icon: Volume2, label: 'Volume', color: 'text-indigo-300' },
+  { id: 'crop', icon: Crop, label: 'Crop', color: 'text-red-300' },
+  { id: 'zoom', icon: ZoomIn, label: 'Zoom', color: 'text-yellow-300' },
+  { id: 'keyframe', icon: MonitorPlay, label: 'Keyframe', color: 'text-emerald-300' },
+];
+
 const CANVAS_PREVIEW_EFFECTS = [
   'green-screen',
   'glitch',
@@ -126,7 +141,89 @@ const CANVAS_PREVIEW_FILTERS = [
   'retro-film',
 ];
 
-export function QuickEditStyleScreen() {
+const TimelineHub = memo(({ mediaItems, audioTracks, progress, handleTimelineClick, activePreviewId }: any) => (
+  <div className="flex flex-col gap-4">
+    <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">
+      <div className="flex items-center gap-2">
+        <span className="text-white">Timeline Hub</span>
+        <div className="w-[1px] h-3 bg-white/10" />
+        <span>{mediaItems.length} Layers • {audioTracks.length} Tracks</span>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[8px] text-emerald-400 tracking-tighter uppercase font-black">Ready for Studio</div>
+      </div>
+    </div>
+
+    <div className="h-11 w-full relative group cursor-pointer" onClick={handleTimelineClick}>
+      <div className="absolute inset-0 bg-white/5 rounded-xl border border-white/10 transition-colors" />
+
+      <div className="absolute inset-y-[2px] left-1 right-1 flex gap-[2px] pointer-events-none">
+        {mediaItems.map((item: any, i: number) => {
+          const totalDuration = mediaItems.reduce((acc: any, item: any) => acc + item.duration, 0);
+          const widthPercent = (item.duration / (totalDuration || 1)) * 100;
+          const isActive = activePreviewId === item.id;
+          return (
+            <div
+              key={item.id}
+              style={{ width: `${widthPercent}%` }}
+              className={`h-full transition-all duration-500 relative ${i === 0 ? 'rounded-l-lg' : ''} ${i === mediaItems.length - 1 ? 'rounded-r-lg' : ''} ${isActive
+                ? 'bg-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.2)] border-x border-cyan-400/50 z-10'
+                : 'bg-white/5 border-x border-white/10'
+                }`}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="activeTimelineGlow"
+                  className="absolute inset-0 bg-cyan-400/10 blur-sm"
+                />
+              )}
+            </div>
+          );
+        })}
+        {mediaItems.length === 0 && (
+          <div className="flex-1 h-full bg-white/5 border border-dashed border-white/10 rounded-lg flex items-center justify-center">
+            <span className="text-[8px] font-bold text-slate-700 uppercase tracking-widest">No Media Sequence</span>
+          </div>
+        )}
+      </div>
+
+      <motion.div
+        initial={false}
+        animate={{ left: `${progress}%` }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="absolute top-0 bottom-0 w-[1px] bg-cyan-400 z-20 shadow-[0_0_15px_rgba(34,211,238,0.8)] pointer-events-none"
+      >
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-cyan-400" />
+        <div className="absolute inset-y-0 left-[-1px] right-[-1px] bg-cyan-400/20 blur-[2px]" />
+      </motion.div>
+    </div>
+  </div>
+));
+
+const QuickToolsGrid = memo(({ QUICK_TOOLS, setActiveTool, copyActiveClip }: any) => (
+  <div className="grid grid-cols-3 gap-3">
+    {QUICK_TOOLS.map((tool: any, index: number) => (
+      <button
+        key={index}
+        onClick={() => {
+          if (tool.id === 'copy') {
+            copyActiveClip();
+            return;
+          }
+          setActiveTool(tool.id);
+        }}
+        className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 hover:border-white/30 transition-all active:scale-[0.98] group"
+      >
+        <tool.icon className={`w-5 h-5 ${tool.color} group-hover:scale-105 transition-transform`} />
+        <span className="text-[8px] font-bold text-slate-200 uppercase tracking-widest">{tool.label}</span>
+      </button>
+    ))}
+  </div>
+));
+
+
+
+export const QuickEditStyleScreen = memo(function QuickEditStyleScreen() {
     type FilterType =
       | 'none'
       | 'vintage'
@@ -153,8 +250,6 @@ export function QuickEditStyleScreen() {
   const [exportQuality, setExportQuality] = useState("1080p");
 
   const [watermark, setWatermark] = useState(true);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isAdvancedConfigOpen, setIsAdvancedConfigOpen] = useState(false);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeature, setPremiumFeature] = useState<"watermark" | "4k" | "60fps" | "general">("general");
 
@@ -173,7 +268,7 @@ export function QuickEditStyleScreen() {
       if (item.config.watermark !== undefined) setWatermark(item.config.watermark);
       if (item.config.aiOptions) setAiOptions(prev => ({ ...prev, ...item.config.aiOptions }));
     }
-    setIsHistoryOpen(false);
+    setActiveTool(null);
   };
 
   const [mediaItems, setMediaItems] = useState<Array<{ id: string, file: File | null, preview: string, type: 'video' | 'image', duration: number }>>([]);
@@ -271,17 +366,7 @@ export function QuickEditStyleScreen() {
     faceTracking: true,
   });
   const [prompt, setPrompt] = useState("");
-  const [isEffectsOpen, setIsEffectsOpen] = useState(false);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [isTransitionsOpen, setIsTransitionsOpen] = useState(false);
-  const [isTextToolOpen, setIsTextToolOpen] = useState(false);
-  const [isSpeedOpen, setIsSpeedOpen] = useState(false);
-  const [isTrimOpen, setIsTrimOpen] = useState(false);
-  const [isRotateOpen, setIsRotateOpen] = useState(false);
-  const [isVolumeOpen, setIsVolumeOpen] = useState(false);
-  const [isCropOpen, setIsCropOpen] = useState(false);
-  const [isZoomOpen, setIsZoomOpen] = useState(false);
-  const [isKeyframeOpen, setIsKeyframeOpen] = useState(false);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
   const [isTextPlacementMode, setIsTextPlacementMode] = useState(false);
   const [overlayText, setOverlayText] = useState('');
   const [overlayFontId, setOverlayFontId] = useState('serif');
@@ -1078,7 +1163,7 @@ export function QuickEditStyleScreen() {
       setActivePreviewId(nextId);
     }
 
-    setIsTransitionsOpen(false);
+    setActiveTool(null);
   };
 
   const handleGenerate = () => {
@@ -1317,7 +1402,7 @@ export function QuickEditStyleScreen() {
         </div>
 
         <div className="flex items-center gap-3 z-50">
-          <Dialog open={isAdvancedConfigOpen} onOpenChange={setIsAdvancedConfigOpen}>
+          <Dialog open={activeTool === 'advanced'} onOpenChange={(open) => setActiveTool(open ? 'advanced' : null)}>
             <DialogTrigger asChild>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -1328,7 +1413,7 @@ export function QuickEditStyleScreen() {
                 <span className="text-[11px] font-bold text-slate-300">Advanced Config</span>
               </motion.button>
             </DialogTrigger>
-            <DialogContent className="bg-[#0b0d1f]/95 backdrop-blur-2xl border-white/10 text-white sm:max-w-[425px] rounded-3xl shadow-2xl z-[100]">
+            <DialogContent className="bg-[#0b0d1f]/95 backdrop-blur-2xl border-white/10 text-white w-[95vw] sm:max-w-[425px] rounded-3xl shadow-2xl z-[100]">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tighter">
                   <Settings2 className="w-5 h-5 text-cyan-400" />
@@ -1343,7 +1428,7 @@ export function QuickEditStyleScreen() {
                     <Download className="w-4 h-4 text-emerald-400" />
                     <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Export Quality</Label>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {['720p', '1080p', '4K'].map((res) => {
                       const isPremium = res === '4K';
                       return (
@@ -1428,7 +1513,7 @@ export function QuickEditStyleScreen() {
 
               <div className="flex justify-end pt-4 border-t border-white/5">
                 <Button
-                  onClick={() => setIsAdvancedConfigOpen(false)}
+                  onClick={() => setActiveTool(null)}
                   className="px-8 bg-white/10 hover:bg-white/20 text-white border-white/10 hover:border-white/20 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-all py-6 h-auto"
                 >
                   Save Changes
@@ -1438,7 +1523,7 @@ export function QuickEditStyleScreen() {
           </Dialog>
 
           <motion.button
-            onClick={() => setIsHistoryOpen(true)}
+            onClick={() => setActiveTool('history')}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-4 py-1.5 flex items-center gap-2 transition-colors z-50"
@@ -1450,10 +1535,10 @@ export function QuickEditStyleScreen() {
       </header>
 
       {/* Main Multi-Pane Studio Area */}
-      <main className="flex-1 flex overflow-hidden relative z-10">
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden md:overflow-hidden overflow-y-auto relative z-10">
 
         {/* Left Column: AI Control and Styling */}
-        <aside className="w-[340px] flex-none border-r border-white/10 flex flex-col bg-[#0b0d1f]/40 backdrop-blur-3xl overflow-y-auto custom-scrollbar">
+        <aside className="w-full md:w-[340px] flex-none border-r border-white/10 flex flex-col bg-[#0b0d1f]/40 backdrop-blur-md overflow-y-auto custom-scrollbar">
           <div className="p-6 space-y-8">
 
             {/* AI Control Panel */}
@@ -1492,68 +1577,11 @@ export function QuickEditStyleScreen() {
             {/* Quick Action Icons [NEW] */}
             <div className="space-y-3 pt-2">
               <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest px-1">Quick Tools</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'effects', icon: Sparkle, label: 'Effects', color: 'text-amber-300' },
-                  { id: 'transitions', icon: Layers, label: 'Transitions', color: 'text-cyan-300' },
-                  { id: 'filters', icon: Palette, label: 'Filters', color: 'text-pink-300' },
-                  { id: 'speed', icon: Timer, label: 'Speed', color: 'text-cyan-300' },
-                  { id: 'trim', icon: Scissors, label: 'Trim', color: 'text-green-300' },
-                  { id: 'copy', icon: Copy, label: 'Copy', color: 'text-blue-300' },
-                  { id: 'text-tool', icon: Type, label: 'Text', color: 'text-purple-300' },
-                  { id: 'rotate', icon: RotateCw, label: 'Rotate', color: 'text-teal-300' },
-                  { id: 'volume', icon: Volume2, label: 'Volume', color: 'text-indigo-300' },
-                  { id: 'crop', icon: Crop, label: 'Crop', color: 'text-red-300' },
-                  { id: 'zoom', icon: ZoomIn, label: 'Zoom', color: 'text-yellow-300' },
-                  { id: 'keyframe', icon: MonitorPlay, label: 'Keyframe', color: 'text-emerald-300' },
-                ].map((tool, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      if ((tool as any).id === 'effects') {
-                        setIsEffectsOpen(true);
-                      }
-                      if ((tool as any).id === 'filters') {
-                        setIsFiltersOpen(true);
-                      }
-                      if ((tool as any).id === 'transitions') {
-                        setIsTransitionsOpen(true);
-                      }
-                      if ((tool as any).id === 'text-tool') {
-                        setIsTextToolOpen(true);
-                      }
-                      if ((tool as any).id === 'speed') {
-                        setIsSpeedOpen(true);
-                      }
-                      if ((tool as any).id === 'trim') {
-                        setIsTrimOpen(true);
-                      }
-                      if ((tool as any).id === 'rotate') {
-                        setIsRotateOpen(true);
-                      }
-                      if ((tool as any).id === 'volume') {
-                        setIsVolumeOpen(true);
-                      }
-                      if ((tool as any).id === 'crop') {
-                        setIsCropOpen(true);
-                      }
-                      if ((tool as any).id === 'zoom') {
-                        setIsZoomOpen(true);
-                      }
-                      if ((tool as any).id === 'copy') {
-                        copyActiveClip();
-                      }
-                      if ((tool as any).id === 'keyframe') {
-                        setIsKeyframeOpen(true);
-                      }
-                    }}
-                    className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 hover:border-white/30 transition-all group"
-                  >
-                    <tool.icon className={`w-5 h-5 ${tool.color} group-hover:scale-110 transition-transform`} />
-                    <span className="text-[8px] font-bold text-slate-200 uppercase tracking-widest">{tool.label}</span>
-                  </button>
-                ))}
-              </div>
+              <QuickToolsGrid
+                QUICK_TOOLS={QUICK_TOOLS}
+                setActiveTool={setActiveTool}
+                copyActiveClip={copyActiveClip}
+              />
             </div>
 
           </div>
@@ -1639,6 +1667,7 @@ export function QuickEditStyleScreen() {
                         <img
                           src={mediaItems.find(i => i.id === activePreviewId)?.preview}
                           className="w-full h-full object-contain"
+                          decoding="async"
                           style={{
                             opacity: selectedEffect === 'fade-in' ? previewOpacity : 1,
                             filter: getCombinedPreviewFilterCss(),
@@ -1697,16 +1726,16 @@ export function QuickEditStyleScreen() {
                       <>
                         <div className="absolute inset-0" style={fromStyle}>
                           {fromItem.type === 'video' ? (
-                            <video src={fromItem.preview} className="w-full h-full object-contain" muted playsInline autoPlay loop />
+                            <video src={fromItem.preview} className="w-full h-full object-contain" muted playsInline autoPlay loop preload="metadata" />
                           ) : (
-                            <img src={fromItem.preview} className="w-full h-full object-contain" alt="Transition from" />
+                            <img src={fromItem.preview} className="w-full h-full object-contain" alt="Transition from" loading="lazy" decoding="async" />
                           )}
                         </div>
                         <div className="absolute inset-0" style={toStyle}>
                           {toItem.type === 'video' ? (
-                            <video src={toItem.preview} className="w-full h-full object-contain" muted playsInline autoPlay loop />
+                            <video src={toItem.preview} className="w-full h-full object-contain" muted playsInline autoPlay loop preload="metadata" />
                           ) : (
-                            <img src={toItem.preview} className="w-full h-full object-contain" alt="Transition to" />
+                            <img src={toItem.preview} className="w-full h-full object-contain" alt="Transition to" loading="lazy" decoding="async" />
                           )}
                         </div>
                         {(transitionOverlay.type === 'dip-black' || transitionOverlay.type === 'dip-white' || transitionOverlay.type === 'flash-transition') && (
@@ -1833,21 +1862,21 @@ export function QuickEditStyleScreen() {
                     <button
                       onClick={undo}
                       disabled={historyIndex <= 0}
-                      className="p-1 rounded hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1 flex items-center justify-center rounded hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
                       <Undo2 className="w-3.5 h-3.5 text-slate-400" />
                     </button>
                     <button
                       onClick={redo}
                       disabled={historyIndex >= history.length - 1}
-                      className="p-1 rounded hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1 flex items-center justify-center rounded hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
                       <Redo2 className="w-3.5 h-3.5 text-slate-400" />
                     </button>
                     <div className="w-[1px] h-3 bg-white/5 mx-1" />
                     <button
                       onClick={() => setIsMuted(!isMuted)}
-                      className="p-1 rounded hover:bg-white/5 transition-colors"
+                      className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1 flex items-center justify-center rounded hover:bg-white/5 transition-colors"
                     >
                       {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-cyan-400" />}
                     </button>
@@ -1884,7 +1913,7 @@ export function QuickEditStyleScreen() {
                           preload="metadata"
                         />
                       ) : (
-                        <img src={item.preview} alt="" className="w-full h-full object-cover" />
+                        <img src={item.preview} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                       )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <button
@@ -2013,7 +2042,7 @@ export function QuickEditStyleScreen() {
         </section>
 
         {/* Right Column: Style Atelier and Frame Customization */}
-        <aside className="w-[320px] flex-none border-l border-white/10 flex flex-col bg-[#0b0d1f]/40 backdrop-blur-3xl overflow-y-auto custom-scrollbar">
+        <aside className="w-full md:w-[320px] flex-none border-l border-white/10 flex flex-col bg-[#0b0d1f]/40 backdrop-blur-md overflow-y-auto custom-scrollbar">
           <div className="p-6 space-y-8">
 
             <div className="space-y-6">
@@ -2139,61 +2168,13 @@ export function QuickEditStyleScreen() {
 
         {/* Timeline Visualizer */}
         <div className="flex-1 space-y-3">
-          <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">
-            <div className="flex items-center gap-2">
-              <span className="text-white">Timeline Hub</span>
-              <div className="w-[1px] h-3 bg-white/10" />
-              <span>{mediaItems.length} Layers • {audioTracks.length} Tracks</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[8px] text-emerald-400 tracking-tighter uppercase font-black">Ready for Studio</div>
-            </div>
-          </div>
-
-          <div className="h-10 w-full relative group cursor-pointer" onClick={handleTimelineClick}>
-            <div className="absolute inset-0 bg-white/5 rounded-xl border border-white/10 transition-colors" />
-
-            <div className="absolute inset-y-[2px] left-1 right-1 flex gap-[2px] pointer-events-none">
-              {mediaItems.map((item, i) => {
-                const totalDuration = mediaItems.reduce((acc, item) => acc + item.duration, 0);
-                const widthPercent = (item.duration / (totalDuration || 1)) * 100;
-                const isActive = activePreviewId === item.id;
-                return (
-                  <div
-                    key={item.id}
-                    style={{ width: `${widthPercent}%` }}
-                    className={`h-full transition-all duration-500 relative ${i === 0 ? 'rounded-l-lg' : ''} ${i === mediaItems.length - 1 ? 'rounded-r-lg' : ''} ${isActive
-                      ? 'bg-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.2)] border-x border-cyan-400/50 z-10'
-                      : 'bg-white/5 border-x border-white/10'
-                      }`}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTimelineGlow"
-                        className="absolute inset-0 bg-cyan-400/10 blur-sm"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-              {mediaItems.length === 0 && (
-                <div className="flex-1 h-full bg-white/5 border border-dashed border-white/10 rounded-lg flex items-center justify-center">
-                  <span className="text-[8px] font-bold text-slate-700 uppercase tracking-widest">No Media Sequence</span>
-                </div>
-              )}
-            </div>
-
-            {/* Playhead */}
-            <motion.div
-              initial={false}
-              animate={{ left: `${progress}%` }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="absolute top-0 bottom-0 w-[1px] bg-cyan-400 z-20 shadow-[0_0_15px_rgba(34,211,238,0.8)] pointer-events-none"
-            >
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-cyan-400" />
-              <div className="absolute inset-y-0 left-[-1px] right-[-1px] bg-cyan-400/20 blur-[2px]" />
-            </motion.div>
-          </div>
+          <TimelineHub
+            mediaItems={mediaItems}
+            audioTracks={audioTracks}
+            progress={progress}
+            handleTimelineClick={handleTimelineClick}
+            activePreviewId={activePreviewId}
+          />
         </div>
 
         {/* Global Controls */}
@@ -2233,20 +2214,21 @@ export function QuickEditStyleScreen() {
       </footer>
 
       <AnimatePresence>
-        {isFiltersOpen && (
+        {activeTool === 'filters' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[121] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsFiltersOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.98 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -2255,8 +2237,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Choose a visual filter</p>
                 </div>
                 <button
-                  onClick={() => setIsFiltersOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2266,72 +2248,32 @@ export function QuickEditStyleScreen() {
                 <button
                   onClick={() => {
                     setSelectedFilter('none');
-                    setIsFiltersOpen(false);
+                    setActiveTool(null);
                   }}
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'none' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
                   No Filter
                 </button>
-                <button
-                  onClick={() => { setSelectedFilter('vintage'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'vintage' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Vintage (Old Film)
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('black-white'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'black-white' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Black and White
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('cinematic'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'cinematic' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Cinematic
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('warm'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'warm' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Warm
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('cool'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'cool' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Cool
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('sepia'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'sepia' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Sepia
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('hdr'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'hdr' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  HDR
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('vivid'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'vivid' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Vivid
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('soft-glow'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'soft-glow' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Soft Glow
-                </button>
-                <button
-                  onClick={() => { setSelectedFilter('retro-film'); setIsFiltersOpen(false); }}
-                  className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === 'retro-film' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
-                >
-                  Retro Film (VHS)
-                </button>
+                {[
+                  { id: 'vintage', label: 'Vintage (Old Film)' },
+                  { id: 'black-white', label: 'Black and White' },
+                  { id: 'cinematic', label: 'Cinematic' },
+                  { id: 'warm', label: 'Warm' },
+                  { id: 'cool', label: 'Cool' },
+                  { id: 'sepia', label: 'Sepia' },
+                  { id: 'hdr', label: 'HDR' },
+                  { id: 'vivid', label: 'Vivid' },
+                  { id: 'soft-glow', label: 'Soft Glow' },
+                  { id: 'retro-film', label: 'Retro Film (VHS)' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => { setSelectedFilter(f.id as FilterType); setActiveTool(null); }}
+                    className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedFilter === f.id ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
             </motion.div>
           </motion.div>
@@ -2339,20 +2281,21 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isEffectsOpen && (
+        {activeTool === 'effects' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsEffectsOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.98 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -2361,8 +2304,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Choose an effect for preview</p>
                 </div>
                 <button
-                  onClick={() => setIsEffectsOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2372,7 +2315,7 @@ export function QuickEditStyleScreen() {
                 <button
                   onClick={() => {
                     setSelectedEffect('none');
-                    setIsEffectsOpen(false);
+                    setActiveTool(null);
                   }}
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'none' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
@@ -2381,7 +2324,7 @@ export function QuickEditStyleScreen() {
                 <button
                   onClick={() => {
                     setSelectedEffect('fade-in');
-                    setIsEffectsOpen(false);
+                    setActiveTool(null);
                   }}
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'fade-in' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
@@ -2398,7 +2341,7 @@ export function QuickEditStyleScreen() {
                 <button
                   onClick={() => {
                     setSelectedEffect('zoom');
-                    setIsEffectsOpen(false);
+                    setActiveTool(null);
                   }}
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'zoom' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
@@ -2415,7 +2358,7 @@ export function QuickEditStyleScreen() {
                 <button
                   onClick={() => {
                     setSelectedEffect('green-screen');
-                    setIsEffectsOpen(false);
+                    setActiveTool(null);
                   }}
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'green-screen' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
@@ -2440,7 +2383,7 @@ export function QuickEditStyleScreen() {
                 <button
                   onClick={() => {
                     setSelectedEffect('transition');
-                    setIsEffectsOpen(false);
+                    setActiveTool(null);
                   }}
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'transition' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
@@ -2449,7 +2392,7 @@ export function QuickEditStyleScreen() {
                 <button
                   onClick={() => {
                     setSelectedEffect('text-animation');
-                    setIsEffectsOpen(false);
+                    setActiveTool(null);
                   }}
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'text-animation' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
@@ -2458,7 +2401,7 @@ export function QuickEditStyleScreen() {
                 <button
                   onClick={() => {
                     setSelectedEffect('motion-tracking');
-                    setIsEffectsOpen(false);
+                    setActiveTool(null);
                   }}
                   className={`w-full px-3 py-3 rounded-xl text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${selectedEffect === 'motion-tracking' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10'}`}
                 >
@@ -2480,7 +2423,7 @@ export function QuickEditStyleScreen() {
                       className="w-full accent-cyan-400"
                     />
                     <button
-                      onClick={() => setIsEffectsOpen(false)}
+                      onClick={() => setActiveTool(null)}
                       className="mt-3 w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                     >
                       Apply Blur
@@ -2536,7 +2479,7 @@ export function QuickEditStyleScreen() {
                       />
                     </div>
                     <button
-                      onClick={() => setIsEffectsOpen(false)}
+                      onClick={() => setActiveTool(null)}
                       className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                     >
                       Apply Color
@@ -2560,7 +2503,7 @@ export function QuickEditStyleScreen() {
                       className="w-full accent-cyan-400"
                     />
                     <button
-                      onClick={() => setIsEffectsOpen(false)}
+                      onClick={() => setActiveTool(null)}
                       className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                     >
                       Apply Slow Motion
@@ -2584,7 +2527,7 @@ export function QuickEditStyleScreen() {
                       className="w-full accent-cyan-400"
                     />
                     <button
-                      onClick={() => setIsEffectsOpen(false)}
+                      onClick={() => setActiveTool(null)}
                       className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                     >
                       Apply Glitch
@@ -2605,7 +2548,7 @@ export function QuickEditStyleScreen() {
                       className="w-full px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-500/50"
                     />
                     <button
-                      onClick={() => setIsEffectsOpen(false)}
+                      onClick={() => setActiveTool(null)}
                       className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                     >
                       Apply Text
@@ -2619,20 +2562,20 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isTransitionsOpen && (
+        {activeTool === 'transitions' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[121] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsTransitionsOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -2641,8 +2584,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Assign transition to selected clip</p>
                 </div>
                 <button
-                  onClick={() => setIsTransitionsOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2722,20 +2665,20 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isSpeedOpen && (
+        {activeTool === 'speed' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsSpeedOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -2744,8 +2687,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Control preview and export playback speed</p>
                 </div>
                 <button
-                  onClick={() => setIsSpeedOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2777,7 +2720,7 @@ export function QuickEditStyleScreen() {
                   ))}
                 </div>
                 <button
-                  onClick={() => setIsSpeedOpen(false)}
+                  onClick={() => setActiveTool(null)}
                   className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                 >
                   Apply Speed
@@ -2789,20 +2732,20 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isTrimOpen && (
+        {activeTool === 'trim' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsTrimOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -2811,8 +2754,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Cut start/end for selected video clip</p>
                 </div>
                 <button
-                  onClick={() => setIsTrimOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2955,20 +2898,20 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isRotateOpen && (
+        {activeTool === 'rotate' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsRotateOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -2977,8 +2920,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Rotate preview and export output</p>
                 </div>
                 <button
-                  onClick={() => setIsRotateOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -3001,7 +2944,7 @@ export function QuickEditStyleScreen() {
                   ))}
                 </div>
                 <button
-                  onClick={() => setIsRotateOpen(false)}
+                  onClick={() => setActiveTool(null)}
                   className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                 >
                   Apply Rotation
@@ -3013,20 +2956,20 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isVolumeOpen && (
+        {activeTool === 'volume' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsVolumeOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -3035,8 +2978,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Adjust preview and export volume</p>
                 </div>
                 <button
-                  onClick={() => setIsVolumeOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -3071,7 +3014,7 @@ export function QuickEditStyleScreen() {
                 />
 
                 <button
-                  onClick={() => setIsVolumeOpen(false)}
+                  onClick={() => setActiveTool(null)}
                   className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                 >
                   Apply Volume
@@ -3083,20 +3026,20 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isCropOpen && (
+        {activeTool === 'crop' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsCropOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -3105,8 +3048,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Crop area for preview and export</p>
                 </div>
                 <button
-                  onClick={() => setIsCropOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -3154,7 +3097,7 @@ export function QuickEditStyleScreen() {
                     Reset
                   </button>
                   <button
-                    onClick={() => setIsCropOpen(false)}
+                    onClick={() => setActiveTool(null)}
                     className="px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                   >
                     Apply Crop
@@ -3167,20 +3110,20 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isZoomOpen && (
+        {activeTool === 'zoom' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsZoomOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -3189,8 +3132,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Adjust zoom for preview and export</p>
                 </div>
                 <button
-                  onClick={() => setIsZoomOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -3217,7 +3160,7 @@ export function QuickEditStyleScreen() {
                   Reset Zoom
                 </button>
                 <button
-                  onClick={() => setIsZoomOpen(false)}
+                  onClick={() => setActiveTool(null)}
                   className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                 >
                   Apply Zoom
@@ -3229,20 +3172,20 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isKeyframeOpen && (
+        {activeTool === 'keyframe' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[123] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
-            onClick={() => setIsKeyframeOpen(false)}
+            onClick={() => setActiveTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
+              className="w-[95vw] md:w-full md:max-w-md rounded-2xl border border-white/10 bg-[#0b0d1f]/95 shadow-2xl p-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -3251,8 +3194,8 @@ export function QuickEditStyleScreen() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">Animate motion over clip time</p>
                 </div>
                 <button
-                  onClick={() => setIsKeyframeOpen(false)}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setActiveTool(null)}
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -3294,7 +3237,7 @@ export function QuickEditStyleScreen() {
                 </div>
 
                 <button
-                  onClick={() => setIsKeyframeOpen(false)}
+                  onClick={() => setActiveTool(null)}
                   className="w-full px-3 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
                 >
                   Apply Keyframe
@@ -3306,14 +3249,14 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isTextToolOpen && (
+        {activeTool === 'text-tool' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[122] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
             onClick={() => {
-              setIsTextToolOpen(false);
+              setActiveTool(null);
               setIsTextPlacementMode(false);
             }}
           >
@@ -3332,10 +3275,10 @@ export function QuickEditStyleScreen() {
                 </div>
                 <button
                   onClick={() => {
-                    setIsTextToolOpen(false);
+                    setActiveTool(null);
                     setIsTextPlacementMode(false);
                   }}
-                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1.5 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -3371,7 +3314,7 @@ export function QuickEditStyleScreen() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Size</label>
                     <input
@@ -3396,7 +3339,7 @@ export function QuickEditStyleScreen() {
                     <button
                       onClick={() => {
                         setIsTextPlacementMode(true);
-                        setIsTextToolOpen(false);
+                        setActiveTool(null);
                       }}
                       className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${isTextPlacementMode ? 'bg-cyan-500 text-[#0b0d1f] border-cyan-400' : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'}`}
                     >
@@ -3443,7 +3386,7 @@ export function QuickEditStyleScreen() {
                   </button>
                   <button
                     onClick={() => {
-                      setIsTextToolOpen(false);
+                      setActiveTool(null);
                       setIsTextPlacementMode(false);
                     }}
                     className="px-4 py-2 rounded-lg bg-cyan-500 text-[#0b0d1f] text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 transition-colors"
@@ -3458,8 +3401,8 @@ export function QuickEditStyleScreen() {
       </AnimatePresence>
 
       <HistoryDialog
-        open={isHistoryOpen}
-        onOpenChange={setIsHistoryOpen}
+        open={activeTool === 'history'}
+        onOpenChange={(open) => setActiveTool(open ? 'history' : null)}
         onSelect={handleHistorySelect}
         currentTool="quick-edit"
       />
@@ -3491,4 +3434,4 @@ export function QuickEditStyleScreen() {
 
     </div>
   );
-}
+});

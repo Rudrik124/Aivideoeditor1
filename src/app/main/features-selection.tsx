@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, FileVideo, Zap, Image as ImageIcon, ArrowLeft, LogOut, User, ChevronDown } from "lucide-react";
+import { Sparkles, FileVideo, Zap, Image as ImageIcon, ArrowLeft, LogOut, User, ChevronDown, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/auth-context";
 import { SuccessToast } from "../components/success-toast";
@@ -188,21 +188,30 @@ export function FeaturesSelectionPage() {
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
+          className="flex items-center gap-3"
         >
-          {isLoggedIn && (
-            <div className="relative">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+          {isLoggedIn ? (
+            <>
+              <button 
+                className="md:hidden p-2 text-white/70 hover:text-white"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-6 py-2 rounded-full border border-cyan-500/20 text-white group shadow-xl"
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                  <User className="w-4 h-4 text-[#0b0d1f]" />
-                </div>
-                <span className="text-sm font-bold tracking-tight">{userName}</span>
-                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-              </motion.button>
+                <Menu className="w-6 h-6" />
+              </button>
+              <div className="hidden md:flex items-center gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-6 py-2 rounded-full border border-cyan-500/20 text-white group shadow-xl"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <User className="w-4 h-4 text-[#0b0d1f]" />
+                  </div>
+                  <span className="text-sm font-bold tracking-tight">{userName}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </motion.button>
+              </div>
 
               <AnimatePresence>
                 {isUserMenuOpen && (
@@ -210,7 +219,7 @@ export function FeaturesSelectionPage() {
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
+                    className="absolute right-6 top-24 md:right-0 md:top-auto md:mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
                   >
                     <div className="p-2">
                       <button 
@@ -227,7 +236,9 @@ export function FeaturesSelectionPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </>
+          ) : (
+             <div className="w-8" /> 
           )}
         </motion.div>
       </div>
@@ -236,13 +247,13 @@ export function FeaturesSelectionPage() {
       <div className="flex items-start justify-center px-6 relative z-10 pt-6 pb-20">
         <div className="w-full max-w-6xl">
           {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-10"
-          >
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)] leading-tight">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="text-center mb-10"
+            >
+            <h1 className="text-[clamp(2.5rem,8vw,4rem)] font-black text-white mb-4 tracking-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)] leading-tight uppercase">
               Select Your Workflow
             </h1>
             <p className="text-lg md:text-xl text-slate-400/80 font-medium tracking-tight">
@@ -255,15 +266,15 @@ export function FeaturesSelectionPage() {
             {features.map((feature, idx) => {
               const Icon = feature.icon;
               return (
-                <motion.div
-                  key={feature.id}
-                  initial={{ opacity: 0, y: 40 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.12, duration: 0.6 }}
-                  whileHover={{ y: -8, scale: 1.01, boxShadow: `0 20px 80px -15px ${feature.glow}` }}
-                  onClick={() => navigate(feature.route)}
-                  className="group relative bg-gradient-to-br from-[#1e293b]/80 to-[#0f172a]/90 border border-[#3f4a67]/30 hover:border-cyan-500/50 backdrop-blur-3xl rounded-3xl p-8 cursor-pointer transition-all duration-500 overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_30px_100px_rgba(34,211,238,0.15)] ring-1 ring-white/5 active:scale-[0.98]"
-                >
+                  <motion.div
+                    key={feature.id}
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.08, duration: 0.4 }}
+                    whileHover={{ y: -8, scale: 1.01, boxShadow: `0 20px 80px -15px ${feature.glow}` }}
+                    onClick={() => navigate(feature.route)}
+                    className="group relative bg-gradient-to-br from-[#1e293b]/80 to-[#0f172a]/90 border border-[#3f4a67]/30 hover:border-cyan-500/50 backdrop-blur-3xl rounded-3xl p-8 cursor-pointer transition-all duration-300 overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_30px_100px_rgba(34,211,238,0.15)] ring-1 ring-white/5 active:scale-[0.98]"
+                  >
                   {/* Internal Ambient Glow */}
                   <div className="absolute inset-0 bg-cyan-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 

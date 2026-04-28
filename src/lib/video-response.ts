@@ -6,6 +6,7 @@ type VideoApiPayload = {
   video?: unknown;
   videoUrl?: unknown;
   url?: unknown;
+  storage?: string;
 };
 
 const asNonEmptyString = (value: unknown) => {

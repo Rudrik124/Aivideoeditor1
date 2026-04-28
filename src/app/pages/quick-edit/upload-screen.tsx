@@ -19,7 +19,8 @@ import {
   ChevronDown,
   LogOut,
   Layers,
-  Download
+  Download,
+  Menu
 } from "lucide-react";
 import { useAuth } from "../../context/auth-context";
 import { useNavigate } from "react-router";
@@ -253,6 +254,13 @@ export function QuickEditUploadScreen() {
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-3"
           >
+            <button 
+              className="md:hidden p-2 text-white/70 hover:text-white"
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="hidden md:flex items-center gap-3">
             {isLoggedIn && (
               <div className="relative">
                 <motion.button
@@ -274,9 +282,16 @@ export function QuickEditUploadScreen() {
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
+                      className="absolute right-4 top-20 md:right-0 md:top-auto md:mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
                     >
                       <div className="p-2">
+                        <button 
+                          onClick={() => setIsHistoryOpen(true)}
+                          className="w-full md:hidden flex items-center gap-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 transition-all text-[10px] font-bold uppercase tracking-[0.2em] group"
+                        >
+                          <History className="w-4 h-4 group-hover:rotate-[-45deg] transition-transform" />
+                          <span>History</span>
+                        </button>
                         <button 
                           onClick={() => {
                             logout();
@@ -301,6 +316,7 @@ export function QuickEditUploadScreen() {
               <History className="w-4 h-4 group-hover:rotate-[-45deg] transition-transform" />
               <span className="text-xs font-bold uppercase tracking-widest">History</span>
             </button>
+            </div>
           </motion.div>
         </div>
 
@@ -315,7 +331,7 @@ export function QuickEditUploadScreen() {
             <span className="text-xs font-black text-cyan-100 uppercase tracking-[0.2em]">Lightning Fast Edit</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_4px_12px_rgba(34,211,238,0.2)] uppercase tracking-tight">
+          <h1 className="text-[clamp(2.5rem,8vw,4.5rem)] leading-tight font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_4px_12px_rgba(34,211,238,0.2)] uppercase tracking-tight">
             Quick AI <span className="text-white opacity-80">Studio</span>
           </h1>
           <p className="text-[#94a3b8] font-medium text-lg max-w-2xl mx-auto leading-relaxed">
@@ -395,6 +411,7 @@ export function QuickEditUploadScreen() {
                           src={previewUrl!}
                           alt="Preview"
                           className="w-full h-full object-cover opacity-40 brightness-50"
+                          decoding="async"
                         />
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-[#0b0d1f] via-transparent to-transparent" />
@@ -531,7 +548,7 @@ export function QuickEditUploadScreen() {
 
                      <button 
                        onClick={() => setShowAudioChoice(false)}
-                       className="absolute top-2 right-2 p-1 text-slate-600 hover:text-white transition-colors"
+                       className="absolute top-2 right-2 p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1 flex items-center justify-center text-slate-600 hover:text-white transition-colors"
                      >
                         <X className="w-4 h-4" />
                      </button>
@@ -577,7 +594,7 @@ export function QuickEditUploadScreen() {
 
                     <button
                       onClick={() => setShowAudioChoice(false)}
-                      className="absolute top-2 right-2 p-1 text-slate-600 hover:text-white transition-colors"
+                      className="absolute top-2 right-2 p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:p-1 flex items-center justify-center text-slate-600 hover:text-white transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>

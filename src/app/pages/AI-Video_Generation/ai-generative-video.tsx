@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, memo } from "react";
 import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -47,7 +47,6 @@ const frameStyleOptions = [
   { label: "4:5", width: 22, height: 28 },
   { label: "2.35:1", width: 36, height: 15 },
 ];
-const particles = Array.from({ length: 40 });
 
 const premiumPrompts = [
   "A cinematic drone fly-through of a neon cyberpunk city at midnight, highly detailed, Unreal Engine 5 render, volumetric lighting",
@@ -56,6 +55,106 @@ const premiumPrompts = [
   "A mysterious hooded figure walking through a hyper-realistic futuristic train station in heavy rain, cinematic lighting, 35mm lens",
   "A time-lapse of a glowing crystal flower blooming in a futuristic greenhouse, soft glowing particles, high contrast"
 ];
+
+const BackgroundGlows = memo(() => (
+  <>
+    {/* Subtle Animated Light Rays */}
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden mix-blend-screen opacity-20">
+      <motion.div
+        animate={{ opacity: [0.1, 0.25, 0.1], scale: [1, 1.1, 1] }}
+        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-[-20%] left-[-10%] w-[80vw] h-[30vh] bg-gradient-to-r from-transparent via-cyan-500 to-transparent blur-[90px] rotate-[35deg] transform origin-top-left"
+        style={{ willChange: "transform, opacity" }}
+      />
+      <motion.div
+        animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.15, 1] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        className="absolute bottom-[-20%] right-[-10%] w-[100vw] h-[25vh] bg-gradient-to-r from-transparent via-teal-500 to-transparent blur-[100px] rotate-[-25deg] transform origin-bottom-right"
+        style={{ willChange: "transform, opacity" }}
+      />
+    </div>
+
+    {/* Organic Breathing Glow Pulses (Enhanced Orbs) */}
+    <motion.div
+      animate={{ opacity: [0.03, 0.1, 0.03], scale: [1, 1.2, 1], x: [0, 50, 0], y: [0, -30, 0] }}
+      transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+      className="fixed top-[5%] left-[5%] w-[60%] h-[60%] bg-cyan-500/30 rounded-full blur-[300px] pointer-events-none z-0 mix-blend-screen"
+      style={{ willChange: "transform, opacity" }}
+    />
+    <motion.div
+      animate={{ opacity: [0.02, 0.08, 0.02], scale: [1, 1.3, 1], x: [0, -40, 0], y: [0, 50, 0] }}
+      transition={{ duration: 20, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      className="fixed bottom-[0%] right-[5%] w-[70%] h-[70%] bg-teal-500/30 rounded-full blur-[350px] pointer-events-none z-0 mix-blend-screen"
+      style={{ willChange: "transform, opacity" }}
+    />
+    <motion.div
+      animate={{ opacity: [0.01, 0.05, 0.01], scale: [1, 1.5, 1], x: [0, 100, 0] }}
+      transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 5 }}
+      className="fixed top-[40%] left-[30%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[250px] pointer-events-none z-0 mix-blend-screen"
+      style={{ willChange: "transform, opacity" }}
+    />
+  </>
+));
+
+const ParticleBackground = memo(() => {
+  const particleData = useMemo(() => {
+    return Array.from({ length: 40 }).map((_, i) => {
+      const isFlare = i % 8 === 0;
+      const size = isFlare ? Math.random() * 40 + 20 : Math.random() * 2 + 1;
+      const depth = Math.random() * 100 + 50;
+      return {
+        id: i,
+        isFlare,
+        size,
+        depth,
+        xInit: Math.random() * (typeof window !== "undefined" ? window.innerWidth : 1000),
+        yInit: Math.random() * (typeof window !== "undefined" ? window.innerHeight : 1000),
+        xOffset: (Math.random() - 0.5) * 60,
+        yOffset: Math.random() * -150 - 50,
+        opacityMax: isFlare ? 0.4 : 0.6,
+        duration: Math.random() * 35 + 20,
+        bgColor: isFlare ? 'rgba(34, 211, 238, 0.15)' : `rgba(165, 243, 252, ${Math.random() * 0.4 + 0.1})`,
+        rotate: isFlare ? Math.random() * 180 : 0
+      };
+    });
+  }, []);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 perspective-[1000px]">
+      {particleData.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute"
+          style={{
+            width: p.size,
+            height: p.isFlare ? 2 : p.size,
+            borderRadius: p.isFlare ? '100%' : '50%',
+            backgroundColor: p.bgColor,
+            filter: p.isFlare ? 'blur(3px)' : 'blur(0.5px)',
+            boxShadow: p.isFlare ? '0 0 20px rgba(34, 211, 238, 0.4)' : 'none',
+            rotate: p.rotate,
+            willChange: "transform, opacity"
+          }}
+          initial={{ x: p.xInit, y: p.yInit, opacity: 0, z: p.depth }}
+          animate={{
+            y: [null, p.yOffset],
+            x: [null, p.xOffset],
+            opacity: [0, p.opacityMax, 0],
+          }}
+          transition={{
+            duration: p.duration,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+        />
+      ))}
+    </div>
+  );
+});
 
 export function AIGenerativeVideoPage() {
   const navigate = useNavigate();
@@ -244,79 +343,8 @@ export function AIGenerativeVideoPage() {
         style={{ boxShadow: 'inset 0 0 500px rgba(11,13,31,0.95)' }}
       />
 
-      {/* Subtle Animated Light Rays */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden mix-blend-screen opacity-20">
-        <motion.div
-          animate={{ opacity: [0.1, 0.25, 0.1], scale: [1, 1.1, 1] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-20%] left-[-10%] w-[80vw] h-[30vh] bg-gradient-to-r from-transparent via-cyan-500 to-transparent blur-[90px] rotate-[35deg] transform origin-top-left"
-        />
-        <motion.div
-          animate={{ opacity: [0.1, 0.2, 0.1], scale: [1, 1.15, 1] }}
-          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute bottom-[-20%] right-[-10%] w-[100vw] h-[25vh] bg-gradient-to-r from-transparent via-teal-500 to-transparent blur-[100px] rotate-[-25deg] transform origin-bottom-right"
-        />
-      </div>
-
-      {/* Organic Breathing Glow Pulses (Enhanced Orbs) */}
-      <motion.div
-        animate={{ opacity: [0.03, 0.1, 0.03], scale: [1, 1.2, 1], x: [0, 50, 0], y: [0, -30, 0] }}
-        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-        className="fixed top-[5%] left-[5%] w-[60%] h-[60%] bg-cyan-500/30 rounded-full blur-[300px] pointer-events-none z-0 mix-blend-screen"
-      />
-      <motion.div
-        animate={{ opacity: [0.02, 0.08, 0.02], scale: [1, 1.3, 1], x: [0, -40, 0], y: [0, 50, 0] }}
-        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-        className="fixed bottom-[0%] right-[5%] w-[70%] h-[70%] bg-teal-500/30 rounded-full blur-[350px] pointer-events-none z-0 mix-blend-screen"
-      />
-      <motion.div
-        animate={{ opacity: [0.01, 0.05, 0.01], scale: [1, 1.5, 1], x: [0, 100, 0] }}
-        transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 5 }}
-        className="fixed top-[40%] left-[30%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[250px] pointer-events-none z-0 mix-blend-screen"
-      />
-
-      {/* Floating Cyan Particles - Parallax Effect */}
-      {mounted && (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 perspective-[1000px]">
-          {particles.map((_, i) => {
-            const isFlare = i % 8 === 0;
-            const size = isFlare ? Math.random() * 40 + 20 : Math.random() * 2 + 1;
-            const depth = Math.random() * 100 + 50;
-
-            return (
-              <motion.div
-                key={i}
-                className="absolute"
-                style={{
-                  width: isFlare ? size : size,
-                  height: isFlare ? 2 : size,
-                  borderRadius: isFlare ? '100%' : '50%',
-                  backgroundColor: isFlare ? 'rgba(34, 211, 238, 0.15)' : `rgba(165, 243, 252, ${Math.random() * 0.4 + 0.1})`,
-                  filter: isFlare ? 'blur(3px)' : 'blur(0.5px)',
-                  boxShadow: isFlare ? '0 0 20px rgba(34, 211, 238, 0.4)' : 'none',
-                  rotate: isFlare ? Math.random() * 180 : 0
-                }}
-                initial={{
-                  x: Math.random() * window.innerWidth,
-                  y: Math.random() * window.innerHeight,
-                  opacity: 0,
-                  z: depth
-                }}
-                animate={{
-                  y: [null, Math.random() * -150 - 50],
-                  x: [null, (Math.random() - 0.5) * 60],
-                  opacity: isFlare ? [0, 0.4, 0] : [0, 0.6, 0],
-                }}
-                transition={{
-                  duration: Math.random() * 35 + 20,
-                  repeat: Infinity,
-                  ease: "linear",
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
+      <BackgroundGlows />
+      <ParticleBackground />
 
 
       {/* Header with Logo */}
@@ -671,12 +699,15 @@ export function AIGenerativeVideoPage() {
             )}
 
             <div className="mt-auto relative group/btn w-full">
+              {/* CSS Animations for button instead of Framer Motion to save main thread */}
+              <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes bg-pan { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+                @keyframes gloss-pan { 0% { left: -100%; } 50% { left: 200%; } 100% { left: 200%; } }
+              `}} />
               {/* Animated Button Sheen/Glow Background */}
-              <motion.div
+              <div
                 className="absolute -inset-1 rounded-[1.25rem] bg-gradient-to-r from-cyan-600 via-teal-400 to-blue-600 opacity-40 blur-xl group-hover/btn:opacity-70 transition-opacity duration-500"
-                animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                style={{ backgroundSize: '200% 200%' }}
+                style={{ backgroundSize: '200% 200%', animation: 'bg-pan 5s linear infinite' }}
               />
               <Button
                 onClick={handleGenerateVideo}
@@ -684,10 +715,9 @@ export function AIGenerativeVideoPage() {
                 className="relative w-full h-16 text-lg rounded-2xl bg-gradient-to-r from-cyan-600 via-teal-500 to-cyan-400 hover:opacity-100 hover:scale-[1.03] transition-all duration-300 shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_40px_rgba(34,211,238,0.6)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-[#0b0d1f] font-black tracking-widest border border-cyan-300/50 overflow-hidden z-10"
               >
                 {/* Internal animated gloss */}
-                <motion.div
+                <div
                   className="absolute inset-0 w-[50%] h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12"
-                  animate={{ left: ['-100%', '200%'] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", repeatDelay: 1 }}
+                  style={{ animation: 'gloss-pan 4s ease-in-out infinite' }}
                 />
                 <span className="relative z-10 flex items-center justify-center gap-3">
                   <Video className="w-5 h-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] group-hover/btn:rotate-12 transition-transform duration-300" />

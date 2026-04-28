@@ -1,104 +1,134 @@
 import { createBrowserRouter } from "react-router";
-import { VideoTypePage } from "./main/video-type-page";
-import { FeaturesSelectionPage } from "./main/features-selection";
-import { HomePage } from "./main/home-page";
-import { AuthCallbackPage } from "./pages/Auth/auth-callback";
-import { AIGenerativeVideoPage } from "./pages/AI-Video_Generation/ai-generative-video";
-import { ProcessingPage } from "./pages/AI-Video_Generation/processing";
-import { ResultPage } from "./pages/AI-Video_Generation/result";
-
-// Generate Using Reference Video
-import { ReferenceVideoSetupScreen } from "./pages/reference-video/setup-screen";
-import { ReferenceVideoProcessingScreen } from "./pages/reference-video/processing-screen";
-import { ReferenceVideoResultScreen } from "./pages/reference-video/result-screen";
-
-// Images to Video
-import { ImagesToVideoUploadScreen } from "./pages/images-to-video/upload-screen";
-import { ImagesToVideoArrangeScreen } from "./pages/images-to-video/arrange-screen";
-import { ImagesToVideoStyleScreen } from "./pages/images-to-video/style-screen";
-import { ImagesToVideoPreviewScreen } from "./pages/images-to-video/preview-screen";
-
-// Quick AI Edit
-import { QuickEditUploadScreen } from "./pages/quick-edit/upload-screen";
-import { QuickEditStyleScreen } from "./pages/quick-edit/style-screen";
-import { QuickEditProcessingScreen } from "./pages/quick-edit/processing-screen";
-import { QuickEditResultScreen } from "./pages/quick-edit/result-screen";
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    Component: VideoTypePage,
+    async lazy() {
+      const { VideoTypePage } = await import("./main/video-type-page");
+      return { Component: VideoTypePage };
+    }
   },
   {
     path: "/auth/callback",
-    Component: AuthCallbackPage,
+    async lazy() {
+      const { AuthCallbackPage } = await import("./pages/Auth/auth-callback");
+      return { Component: AuthCallbackPage };
+    }
   },
   {
     path: "/features",
-    Component: FeaturesSelectionPage,
+    async lazy() {
+      const { FeaturesSelectionPage } = await import("./main/features-selection");
+      return { Component: FeaturesSelectionPage };
+    }
   },
   // AI Generated Video (original flow)
   {
     path: "/create",
-    Component: AIGenerativeVideoPage,
+    async lazy() {
+      const { AIGenerativeVideoPage } = await import("./pages/AI-Video_Generation/ai-generative-video");
+      return { Component: AIGenerativeVideoPage };
+    }
   },
   {
     path: "/home",
-    Component: HomePage,
+    async lazy() {
+      const { HomePage } = await import("./main/home-page");
+      return { Component: HomePage };
+    }
   },
   {
     path: "/processing",
-    Component: ProcessingPage,
+    async lazy() {
+      const { ProcessingPage } = await import("./pages/AI-Video_Generation/processing");
+      return { Component: ProcessingPage };
+    }
   },
   {
     path: "/result",
-    Component: ResultPage,
+    async lazy() {
+      const { ResultPage } = await import("./pages/AI-Video_Generation/result");
+      return { Component: ResultPage };
+    }
   },
   // Generate Using Reference Video
   {
     path: "/reference-video/setup",
-    Component: ReferenceVideoSetupScreen,
+    async lazy() {
+      const { ReferenceVideoSetupScreen } = await import("./pages/reference-video/setup-screen");
+      return { Component: ReferenceVideoSetupScreen };
+    }
   },
   {
     path: "/reference-video/processing",
-    Component: ReferenceVideoProcessingScreen,
+    async lazy() {
+      const { ReferenceVideoProcessingScreen } = await import("./pages/reference-video/processing-screen");
+      return { Component: ReferenceVideoProcessingScreen };
+    }
   },
   {
     path: "/reference-video/result",
-    Component: ReferenceVideoResultScreen,
+    async lazy() {
+      const { ReferenceVideoResultScreen } = await import("./pages/reference-video/result-screen");
+      return { Component: ReferenceVideoResultScreen };
+    }
   },
   // Images to Video
   {
     path: "/images-to-video/upload",
-    Component: ImagesToVideoUploadScreen,
+    async lazy() {
+      const { ImagesToVideoUploadScreen } = await import("./pages/images-to-video/upload-screen");
+      return { Component: ImagesToVideoUploadScreen };
+    }
   },
   {
     path: "/images-to-video/arrange",
-    Component: ImagesToVideoArrangeScreen,
+    async lazy() {
+      const { ImagesToVideoArrangeScreen } = await import("./pages/images-to-video/arrange-screen");
+      return { Component: ImagesToVideoArrangeScreen };
+    }
   },
   {
     path: "/images-to-video/style",
-    Component: ImagesToVideoStyleScreen,
+    async lazy() {
+      const { ImagesToVideoStyleScreen } = await import("./pages/images-to-video/style-screen");
+      return { Component: ImagesToVideoStyleScreen };
+    }
   },
   {
     path: "/images-to-video/preview",
-    Component: ImagesToVideoPreviewScreen,
+    async lazy() {
+      const { ImagesToVideoPreviewScreen } = await import("./pages/images-to-video/preview-screen");
+      return { Component: ImagesToVideoPreviewScreen };
+    }
   },
   // Quick AI Edit
   {
     path: "/quick-edit/upload",
-    Component: QuickEditUploadScreen,
+    async lazy() {
+      const { QuickEditUploadScreen } = await import("./pages/quick-edit/upload-screen");
+      return { Component: QuickEditUploadScreen };
+    }
   },
   {
     path: "/quick-edit/style",
-    Component: QuickEditStyleScreen,
+    async lazy() {
+      const { QuickEditStyleScreen } = await import("./pages/quick-edit/style-screen");
+      return { Component: QuickEditStyleScreen };
+    }
   },
   {
     path: "/quick-edit/processing",
-    Component: QuickEditProcessingScreen,
+    async lazy() {
+      const { QuickEditProcessingScreen } = await import("./pages/quick-edit/processing-screen");
+      return { Component: QuickEditProcessingScreen };
+    }
   },
   {
     path: "/quick-edit/result",
-    Component: QuickEditResultScreen,
-  },
+    async lazy() {
+      const { QuickEditResultScreen } = await import("./pages/quick-edit/result-screen");
+      return { Component: QuickEditResultScreen };
+    }
+  }
 ]);

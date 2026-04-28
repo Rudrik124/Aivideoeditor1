@@ -11,7 +11,8 @@ import {
   ArrowRight,
   LogOut,
   User,
-  ChevronDown
+  ChevronDown,
+  Menu
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "../components/ui/button";
@@ -167,54 +168,77 @@ export function VideoTypePage() {
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
+          className="flex items-center gap-3"
         >
-          {isLoggedIn ? (
-            <div className="relative">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/10 transition-all text-white group shadow-xl"
+          <button 
+            className="md:hidden p-2 text-white/70 hover:text-white"
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          
+          <div className="hidden md:flex items-center gap-3">
+            {isLoggedIn ? (
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/10 transition-all text-white group shadow-xl"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <User className="w-4 h-4 text-[#0b0d1f]" />
+                  </div>
+                  <span className="text-sm font-bold tracking-tight">{userName}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </motion.button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setIsLoginOpen(true)}
+                className="text-sm font-semibold text-cyan-50 transition-all bg-white/5 hover:bg-white/10 px-7 py-3 rounded-full border border-cyan-500/20 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] hover:shadow-[0_8px_40px_rgba(34,211,238,0.3)] group"
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                  <User className="w-4 h-4 text-[#0b0d1f]" />
-                </div>
-                <span className="text-sm font-bold tracking-tight">{userName}</span>
-                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-              </motion.button>
+                <span className="group-hover:text-cyan-300 transition-colors">Login</span>
+              </button>
+            )}
+          </div>
 
-              <AnimatePresence>
-                {isUserMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
-                  >
-                    <div className="p-2">
-                      <button 
-                        onClick={() => {
-                          logout();
-                          setIsUserMenuOpen(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all text-sm font-bold uppercase tracking-widest group"
-                      >
-                        <LogOut className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        <span>Logout</span>
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ) : (
-            <button 
-              onClick={() => setIsLoginOpen(true)}
-              className="text-sm font-semibold text-cyan-50 transition-all bg-white/5 hover:bg-white/10 px-7 py-3 rounded-full border border-cyan-500/20 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] hover:shadow-[0_8px_40px_rgba(34,211,238,0.3)] group"
-            >
-              <span className="group-hover:text-cyan-300 transition-colors">Login</span>
-            </button>
-          )}
+          <AnimatePresence>
+            {isUserMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute right-6 top-24 md:right-0 md:top-auto md:mt-3 w-48 bg-[#0b0d1f]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100]"
+              >
+                <div className="p-2">
+                  {!isLoggedIn && (
+                    <button 
+                      onClick={() => {
+                        setIsLoginOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 transition-all text-sm font-bold tracking-widest group"
+                    >
+                      <span>Login</span>
+                    </button>
+                  )}
+                  {isLoggedIn && (
+                    <button 
+                      onClick={() => {
+                        logout();
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all text-sm font-bold uppercase tracking-widest group"
+                    >
+                      <LogOut className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      <span>Logout</span>
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
 
@@ -228,14 +252,14 @@ export function VideoTypePage() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.3 }}
             className="inline-flex items-center gap-2 bg-[#1a1b2e]/60 backdrop-blur-3xl px-6 py-2.5 rounded-full border border-cyan-500/20 mb-8 shadow-[0_4px_30px_rgba(0,0,0,0.2)] hover:bg-[#2d3142]/60 transition-colors cursor-default"
           >
             <Sparkles className="w-4 h-4 text-cyan-400" />
             <span className="text-sm font-semibold text-cyan-100 tracking-wide uppercase font-sans tracking-[0.2em]">Next-Gen Creation</span>
           </motion.div>
 
-          <h1 className="text-6xl md:text-7xl lg:text-[7.5rem] font-black tracking-tighter mb-8 leading-[1.1] selection:bg-cyan-500/30 relative text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
+          <h1 className="text-[clamp(3.5rem,10vw,7.5rem)] font-black tracking-tighter mb-8 leading-[1.1] selection:bg-cyan-500/30 relative text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-teal-300 drop-shadow-[0_2px_10px_rgba(34,211,238,0.2)]">
             AI Video Editor
           </h1>
 
