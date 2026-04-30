@@ -14,6 +14,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import dotenv from "dotenv";
+import { generateScenesWithImages, generateScenes } from "./server-scenes.js";
+import { createVideoFromImages } from "./server-video-from-images.js";
+import { createCinematicVideo } from "./server-cinematic-video.js";
 
 dotenv.config();
 
@@ -2944,6 +2947,249 @@ app.post(
     }
   }
 );
+
+// ✅ SCENE AND IMAGE GENERATION ENDPOINT
+// Takes { prompt } as input
+// Returns { scenes: [...], images: [...] }
+app.post("/api/scene-images", async (req, res) => {
+  try {
+    const { prompt } = req.body;
+
+    if (!prompt || !String(prompt).trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Prompt is required",
+      });
+    }
+
+    const unsplashAccessKey = readEnv("UNSPLASH_ACCESS_KEY");
+
+    if (!unsplashAccessKey) {
+      return res.status(500).json({
+        success: false,
+        error: "UNSPLASH_ACCESS_KEY is not configured in environment variables. Please set it in .env file.",
+      });
+    }
+
+    console.log("📍 [SCENES] Generating scenes and images for prompt:", prompt.substring(0, 50));
+
+    const result = await generateScenesWithImages(prompt, unsplashAccessKey);
+
+    console.log("✅ [SCENES] Generated", result.scenes.length, "scenes and", result.images.length, "images");
+
+    res.json({
+      success: true,
+      scenes: result.scenes,
+      images: result.images,
+    });
+  } catch (error) {
+    const errorMessage = toErrorMessage(error, "Scene and image generation failed");
+    console.error("❌ [SCENES] Error:", errorMessage);
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+    });
+  }
+});
+
+// ✅ VIDEO CREATION FROM IMAGES ENDPOINT
+// Takes { images: [...], options: {...} } as input
+// Returns { success: true, video: "url_or_path" }
+app.post("/api/video-from-images", async (req, res) => {
+  const { images, options = {} } = req.body;
+
+  try {
+    if (!images || !Array.isArray(images) || images.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: "Minimum 2 image URLs required",
+      });
+    }
+
+    // Validate all URLs
+    const validImages = images.filter((url) => {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+    if (validImages.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: "Minimum 2 valid image URLs required",
+      });
+    }
+
+    console.log("📍 [VIDEO-FROM-IMAGES] Creating video from", validImages.length, "images");
+
+    // Prepare output path
+    const fileName = `animated-video-${Date.now()}.mp4`;
+    const outputPath = makeTempFilePath("video.mp4");
+
+    // Merge user options with defaults
+    const videoOptions = {
+      width: 1280,
+      height: 720,
+      fps: 30,
+      imageDuration: 3,
+      transitionDuration: 0.8,
+      enableZoom: true,
+      enablePan: true,
+      scaleEnd: 1.15,
+      ...options,
+    };
+
+    // Create video
+    const videoPath = await createVideoFromImages(validImages, outputPath, videoOptions);
+
+    console.log("✅ [VIDEO-FROM-IMAGES] Video created successfully");
+
+    // Optional: Upload to Supabase
+    let publicUrl = videoPath;
+    let storage = null;
+
+    try {
+      console.log("📤 [VIDEO-FROM-IMAGES] Uploading to storage...");
+      const uploadResult = await uploadVideoUrlToSupabase(
+        videoPath,
+        fileName,
+        SUPABASE_BUCKETS.AI_GENERATED,
+      );
+      publicUrl = uploadResult.publicUrl;
+      storage = uploadResult.storagePath;
+      console.log("✅ [VIDEO-FROM-IMAGES] Storage upload complete");
+
+      // Clean up local file after upload
+      fs.unlink(videoPath, () => {});
+    } catch (storageError) {
+      console.warn("⚠️ [VIDEO-FROM-IMAGES] Storage upload skipped, using local path");
+    }
+
+    res.json({
+      success: true,
+      video: publicUrl,
+      storage,
+      framesRendered: Math.round(
+        (videoOptions.imageDuration + videoOptions.transitionDuration) *
+          validImages.length *
+          videoOptions.fps,
+      ),
+      duration: (videoOptions.imageDuration + videoOptions.transitionDuration) * validImages.length,
+    });
+  } catch (error) {
+    const errorMessage = toErrorMessage(error, "Video creation from images failed");
+    console.error("❌ [VIDEO-FROM-IMAGES] Error:", errorMessage);
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+    });
+  }
+});
+
+// ✅ CINEMATIC VIDEO CREATION ENDPOINT
+// Takes { images: [...], options: {...} } as input with motion effects
+// Returns { success: true, video: "url_or_path" }
+app.post("/api/cinematic-video", async (req, res) => {
+  const { images, options = {} } = req.body;
+
+  try {
+    if (!images || !Array.isArray(images) || images.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: "Minimum 2 image URLs required",
+      });
+    }
+
+    // Validate all URLs
+    const validImages = images.filter((url) => {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+    if (validImages.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: "Minimum 2 valid image URLs required",
+      });
+    }
+
+    console.log("📍 [CINEMATIC] Creating cinematic video from", validImages.length, "images with motion effects");
+
+    // Prepare output path
+    const fileName = `cinematic-video-${Date.now()}.mp4`;
+    const outputPath = makeTempFilePath("video.mp4");
+
+    // Merge user options with defaults
+    const videoOptions = {
+      width: 1280,
+      height: 720,
+      fps: 30,
+      imageDuration: 3.5,
+      transitionDuration: 1,
+      scaleStart: 1.0,
+      scaleEnd: 1.15,
+      enablePan: true,
+      enableFade: true,
+      ...options,
+    };
+
+    // Create cinematic video
+    const videoPath = await createCinematicVideo(validImages, outputPath, videoOptions);
+
+    console.log("✅ [CINEMATIC] Cinematic video created successfully");
+
+    // Optional: Upload to Supabase
+    let publicUrl = videoPath;
+    let storage = null;
+
+    try {
+      console.log("📤 [CINEMATIC] Uploading to storage...");
+      const uploadResult = await uploadVideoUrlToSupabase(
+        videoPath,
+        fileName,
+        SUPABASE_BUCKETS.AI_GENERATED,
+      );
+      publicUrl = uploadResult.publicUrl;
+      storage = uploadResult.storagePath;
+      console.log("✅ [CINEMATIC] Storage upload complete");
+
+      // Clean up local file after upload
+      fs.unlink(videoPath, () => {});
+    } catch (storageError) {
+      console.warn("⚠️ [CINEMATIC] Storage upload skipped, using local path");
+    }
+
+    res.json({
+      success: true,
+      video: publicUrl,
+      storage,
+      motionEffects: {
+        zoom: `${videoOptions.scaleStart} → ${videoOptions.scaleEnd}`,
+        pan: videoOptions.enablePan ? "enabled" : "disabled",
+        fadeTransitions: videoOptions.enableFade ? "enabled" : "disabled",
+        fps: videoOptions.fps,
+      },
+      duration: (videoOptions.imageDuration + videoOptions.transitionDuration) * validImages.length,
+    });
+  } catch (error) {
+    const errorMessage = toErrorMessage(error, "Cinematic video creation failed");
+    console.error("❌ [CINEMATIC] Error:", errorMessage);
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+    });
+  }
+});
 
 // ✅ START SERVER
 app.listen(5000, () => {
