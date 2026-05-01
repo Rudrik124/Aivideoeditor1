@@ -1617,47 +1617,222 @@ const generateScenesFromPrompt = (prompt) => {
 };
 
 /**
- * Converts scenes to image URLs by searching Unsplash
- * @param {Array} scenes - Array of scene objects
+ * Detects if a prompt contains complex concepts that require AI generation
+ * @param {string} prompt - The prompt to check
+ * @returns {boolean} True if prompt contains complex keywords
+ */
+const isComplexPrompt = (prompt) => {
+  const complexWords = ["robot", "ai", "futuristic", "cyberpunk", "spaceship", "alien", "android", "drone", "hologram", "neon", "steampunk"];
+  const lowerPrompt = String(prompt || "").toLowerCase();
+  return complexWords.some(word => lowerPrompt.includes(word));
+};
+
+/**
+ * Generates an AI image using Stability AI API
+ * @param {string} prompt - The image generation prompt
+ * @param {string} variant - Optional variant suffix (e.g., "wide shot", "close up")
+ * @returns {Promise<string>} Base64 encoded image or URL
+ */
+const generateAIImage = async (prompt, variant = "") => {
+  const stabilityApiKey = readEnv("STABILITY_API_KEY");
+  
+  console.log(`🎨 [generateAIImage] Called with prompt: "${prompt}", variant: "${variant}"`);
+  console.log(`🎨 [generateAIImage] API Key present: ${stabilityApiKey ? "✅ YES" : "❌ NO"}`);
+  
+  if (!stabilityApiKey) {
+    console.warn("⚠️  [AI Image] Stability API key not configured, falling back to Unsplash");
+    return null;
+  }
+
+  try {
+    const fullPrompt = variant ? `${prompt}, ${variant}` : prompt;
+    console.log(`🎨 [Stability AI] Generating image for: "${fullPrompt}"`);
+
+    // Create FormData for multipart request
+    const formData = new FormData();
+    formData.append("prompt", fullPrompt);
+    formData.append("output_format", "png");
+
+    console.log(`🎨 [Stability AI] Making request to https://api.stability.ai/v2beta/stable-image/generate/ultra`);
+
+    const response = await fetch(
+      "https://api.stability.ai/v2beta/stable-image/generate/ultra",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${stabilityApiKey}`,
+          "Accept": "application/json"
+        },
+        body: formData
+      }
+    );
+
+    console.log(`🎨 [Stability AI] Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ [Stability AI] API error: ${response.status}`, errorText);
+      return null;
+    }
+
+    // Parse JSON response containing base64 image
+    const data = await response.json();
+    
+    console.log(`🎨 [Stability AI] Response parsed, checking for image field`);
+    
+    if (!data.image) {
+      console.error("❌ [Stability AI] No image in response. Response keys:", Object.keys(data));
+      return null;
+    }
+
+    // Convert base64 to buffer
+    const imageBuffer = Buffer.from(data.image, "base64");
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const sanitizedPrompt = String(prompt).replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 30);
+    const filename = `ai-generated/${sanitizedPrompt}-${timestamp}.png`;
+    
+    console.log(`💾 [Stability AI] Uploading to Supabase Storage: ${filename}`);
+    
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("AI_Generated_Video")
+      .upload(filename, imageBuffer, {
+        contentType: "image/png",
+        upsert: false
+      });
+    
+    if (uploadError) {
+      console.error(`❌ [Stability AI] Upload error:`, uploadError);
+      return null;
+    }
+    
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from("AI_Generated_Video")
+      .getPublicUrl(filename);
+    
+    const publicUrl = publicUrlData?.publicUrl;
+    
+    if (!publicUrl) {
+      console.error(`❌ [Stability AI] Failed to get public URL`);
+      return null;
+    }
+    
+    console.log(`✅ [Stability AI] Image uploaded successfully`);
+    console.log(`   URL: ${publicUrl.substring(0, 80)}...`);
+    
+    return publicUrl;
+
+  } catch (error) {
+    console.error(`❌ [Stability AI] Error:`, toErrorMessage(error));
+    return null;
+  }
+};
+
+/**
+ * Converts scenes to image URLs by searching Unsplash or generating with AI
+ * @param {Array} scenes - Array of scene objects with keywords
  * @returns {Promise<Array>} Array of video segments with image URLs
  */
 const scenesToImages = async (scenes) => {
   const results = [];
+  const usedUrls = new Set();
   
-  for (const scene of scenes) {
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i];
+    const query = scene.keywords || "technology";
+    
     try {
-      const searchResponse = await fetch("http://localhost:5000/search-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: scene.keywords || "technology" })
-      });
+      console.log(`\n📸 [Image Fetch] Scene ${i + 1}/${scenes.length}`);
+      console.log(`   Query: "${query}"`);
+      
+      let imageUrl = null;
+      let source = "unknown";
+      
+      // Check if prompt is complex and use AI generation if available
+      if (isComplexPrompt(query)) {
+        console.log(`🤖 [Image Fetch] Complex prompt detected, attempting AI generation...`);
+        
+        // Try to generate AI image with different variants for variety
+        const variants = ["", "cinematic lighting", "wide shot"];
+        const variant = variants[i % variants.length] || "";
+        
+        const aiImage = await generateAIImage(query, variant);
+        if (aiImage) {
+          imageUrl = aiImage;
+          source = "stability-ai";
+          console.log(`✅ [Image Fetch] Using AI-generated image`);
+        } else {
+          console.log(`⚠️  [Image Fetch] AI generation failed, falling back to Unsplash`);
+        }
+      }
+      
+      // Fallback to Unsplash if no AI image
+      if (!imageUrl) {
+        const searchResponse = await fetch("http://localhost:5000/search-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: query.trim() })
+        });
 
-      if (!searchResponse.ok) {
-        throw new Error(`Search failed: ${searchResponse.status}`);
+        if (!searchResponse.ok) {
+          throw new Error(`Search failed: ${searchResponse.status}`);
+        }
+
+        const searchData = await searchResponse.json();
+        imageUrl = searchData.image;
+        source = searchData.source || "unsplash";
       }
 
-      const searchData = await searchResponse.json();
-      const imageUrl = searchData.image || `https://picsum.photos/seed/${String(scene.keywords || "technology").replace(/\s+/g, "-")}/1600/900`;
+      // Check for duplicates and retry with modified query if needed
+      if (usedUrls.has(imageUrl)) {
+        console.log(`⚠️  [Image Fetch] Duplicate URL detected, retrying with modified query...`);
+        
+        // Try with a slightly different query
+        const modifiedQuery = `${query} -${i}`;
+        const retryResponse = await fetch("http://localhost:5000/search-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: modifiedQuery })
+        });
+
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          imageUrl = retryData.image;
+          source = retryData.source || "unsplash";
+          console.log(`✅ [Image Fetch] Got unique image on retry`);
+        }
+      }
+
+      usedUrls.add(imageUrl);
+      
+      console.log(`✅ [Image Fetch] URL: ${imageUrl.substring(0, 80)}${imageUrl.length > 80 ? '...' : ''}`);
+      console.log(`   Source: ${source}`);
 
       results.push({
         type: "image",
         src: imageUrl,
-        duration: scene.duration || 5
+        duration: scene.duration || 2.8
       });
 
-      console.log(`✅ [ScenesToImages] Scene image: ${imageUrl}`);
     } catch (error) {
-      console.error(`❌ [ScenesToImages] Error searching image:`, toErrorMessage(error));
+      console.error(`❌ [Image Fetch] Error for scene ${i + 1}:`, toErrorMessage(error));
+      
       // Fallback to picsum
-      const fallbackUrl = `https://picsum.photos/seed/${String(scene.keywords || "technology").replace(/\s+/g, "-")}/1600/900`;
+      const fallbackUrl = `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1280/720`;
+      console.log(`⚠️  [Image Fetch] Using fallback: ${fallbackUrl}`);
+      
       results.push({
         type: "image",
         src: fallbackUrl,
-        duration: scene.duration || 5
+        duration: scene.duration || 2.8
       });
     }
   }
   
+  console.log(`\n✅ [Image Fetch Complete] Fetched ${results.length} images`);
   return results;
 };
 
@@ -2226,21 +2401,48 @@ const buildEffectPromptSnippet = (effects) => {
 app.post("/search-image", async (req, res) => {
   const { query } = req.body;
 
+  console.log(`\n📍 [/search-image] Endpoint called with query: "${query}"`);
+
   try {
     if (!query || !String(query).trim()) {
       return res.status(400).json({ success: false, error: "Query is required" });
     }
 
-    const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
+    // Check if query contains complex keywords that would benefit from AI generation
+    const useAI = isComplexPrompt(query);
+    
+    console.log(`📍 [/search-image] isComplexPrompt result: ${useAI}`);
+    
+    if (useAI) {
+      console.log(`🤖 [Search] Complex prompt detected, attempting AI generation for: "${query}"`);
+      const aiImage = await generateAIImage(query);
+      
+      console.log(`🤖 [Search] generateAIImage returned: ${aiImage ? "✅ IMAGE" : "❌ NULL"}`);
+      
+      if (aiImage) {
+        return res.json({ 
+          success: true, 
+          image: aiImage, 
+          source: "stability-ai" 
+        });
+      }
+      
+      console.log(`⚠️  [Search] AI generation failed, falling back to Unsplash`);
+    }
+    
+    // Try multiple env variable names for the Unsplash API key
+    const unsplashAccessKey = process.env.UNSPLASH_API_KEY || process.env.UNSPLASH_ACCESS_KEY;
+    
     if (!unsplashAccessKey) {
-      console.warn("⚠️ [Unsplash] Missing UNSPLASH_ACCESS_KEY, using fallback image");
-      return res.json({
-        success: true,
-        image: `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1280/720`
+      console.error("❌ [Unsplash] Missing UNSPLASH_API_KEY environment variable");
+      console.error("    Available env vars:", Object.keys(process.env).filter(k => k.includes('UNSPLASH')));
+      return res.status(500).json({ 
+        success: false, 
+        error: "Unsplash API key not configured. Please set UNSPLASH_API_KEY environment variable." 
       });
     }
 
-    console.log("🔍 [Unsplash] Searching for landscape images:", query);
+    console.log(`🔍 [Unsplash] Searching for: "${query}"`);
 
     // Request multiple results to find a true landscape image
     const searchResponse = await fetch(
@@ -2255,11 +2457,22 @@ app.post("/search-image", async (req, res) => {
     );
 
     if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      console.error(`❌ [Unsplash] API error: ${searchResponse.status}`, errorText);
       throw new Error(`Unsplash API error: ${searchResponse.status}`);
     }
 
     const searchData = await searchResponse.json();
     const results = searchData.results || [];
+
+    if (results.length === 0) {
+      console.warn(`⚠️  [Unsplash] No results found for query: "${query}"`);
+      return res.json({
+        success: true,
+        image: `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1280/720`,
+        source: "fallback"
+      });
+    }
 
     // Filter for true landscape images (width >= height)
     let selectedImage = null;
@@ -2272,35 +2485,41 @@ app.post("/search-image", async (req, res) => {
 
       // Validate that image is truly landscape (width >= height)
       if (width >= height) {
-        console.log(`✅ [Unsplash] Found landscape image (${width}x${height}): ${result.alt_description || query}`);
+        console.log(`✅ [Unsplash] Found landscape image (${width}x${height}): "${result.alt_description || query}"`);
         selectedImage = imageUrl;
         break;
       } else {
-        console.log(`⏭️  [Unsplash] Skipping portrait image (${width}x${height}), continuing search...`);
+        console.log(`⏭️  [Unsplash] Skipping portrait image (${width}x${height}), trying next...`);
       }
     }
 
     if (!selectedImage) {
-      console.warn("⚠️ [Unsplash] No landscape image found after checking all results, using fallback");
+      console.warn(`⚠️  [Unsplash] No landscape image found for query: "${query}", using fallback`);
       return res.json({
         success: true,
-        image: `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1280/720`
+        image: `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1280/720`,
+        source: "fallback"
       });
     }
 
     // Append parameters to ensure correct aspect ratio (16:9) and size
-    const optimizedImageUrl = `${selectedImage}&w=1280&h=720&fit=crop`;
+    const optimizedImageUrl = `${selectedImage}?w=1280&h=720&fit=crop`;
 
-    console.log("✅ [Unsplash] Optimized image URL:", optimizedImageUrl);
-    res.json({ success: true, image: optimizedImageUrl });
+    console.log(`📸 [Unsplash] Optimized URL: ${optimizedImageUrl}`);
+    res.json({ success: true, image: optimizedImageUrl, source: "unsplash" });
 
   } catch (error) {
-    console.error("❌ [Unsplash] Error:", toErrorMessage(error));
-    // Fallback to picsum if Unsplash fails
+    console.error(`❌ [Unsplash] Error:`, toErrorMessage(error));
+    
+    // Fallback to picsum only if Unsplash completely fails
     const query = req.body.query || "technology";
+    const fallbackUrl = `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1280/720`;
+    console.log(`⚠️  [Fallback] Using picsum: ${fallbackUrl}`);
+    
     res.json({
       success: true,
-      image: `https://picsum.photos/seed/${String(query).replace(/\s+/g, "-")}/1600/900`
+      image: fallbackUrl,
+      source: "fallback"
     });
   }
 });

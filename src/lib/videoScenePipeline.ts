@@ -10,8 +10,8 @@ export type VideoPayload = {
     duration: number;
     "background-color": string;
     elements: Array<{
-      type: "image";
-      src: string;
+      type: "image" | "text";
+      src?: string;
       duration: number;
       // Motion effects
       transform?: {
@@ -29,16 +29,25 @@ export type VideoPayload = {
         from?: number;
         to?: number;
       };
+      // Text properties
+      text?: string;
+      fontSize?: number;
+      fontColor?: string;
+      position?: {
+        x: number;
+        y: number;
+      };
+      perspective?: "wide" | "close-up" | "top-view" | "detail";
     }>;
   }>;
 };
 
 /**
- * Builds a JSON2Video payload using visual scenes with motion effects
+ * Builds a JSON2Video payload using visual scenes with cinematic motion effects
  * @param prompt User prompt to convert to visual scenes
- * @param duration Total video duration in seconds
+ * @param duration Total video duration in seconds (default: 10)
  * @param aspectRatio Video aspect ratio (e.g., "16:9")
- * @returns JSON2Video API payload with image elements and motion effects
+ * @returns JSON2Video API payload with image elements and cinematic effects
  */
 export function buildVideoPayloadFromScenes(
   prompt: string,
@@ -62,16 +71,90 @@ export function buildVideoPayloadFromScenes(
   
   const size = ratioMap[String(aspectRatio || "16:9")] || ratioMap["16:9"];
 
-  // Generate visual scenes from prompt
+  // Generate visual scenes with cinematic variety
   const scenes = generateScenesFromPrompt(normalizedPrompt);
   
   // Convert scenes to image elements
   const videoSegments = scenesToImages(scenes);
 
-  // Distribute duration across video segments
-  const durationPerSegment = safeDuration / videoSegments.length;
+  // Each segment now has its own duration from scene generation (2.5-3s)
+  // Create elements with enhanced cinematic effects
+  const elements = videoSegments.map((segment, index) => {
+    const scene = scenes[index % scenes.length];
+    const duration = scene?.duration || 2.8;
+    
+    // Vary zoom intensity based on perspective
+    let zoomIntensity = 1.3; // Default cinematic zoom
+    if (scene?.perspective === "wide") {
+      zoomIntensity = 1.25; // Less zoom for wide shots
+    } else if (scene?.perspective === "detail") {
+      zoomIntensity = 1.4; // More zoom for close-ups
+    } else if (scene?.perspective === "top-view") {
+      zoomIntensity = 1.28; // Moderate zoom for aerial shots
+    }
+    
+    // Vary pan direction pattern for visual interest
+    const panPatterns = [
+      { x: 40, y: -20 },  // right-up
+      { x: -40, y: 20 },  // left-down
+      { x: 20, y: 40 },   // up-left
+      { x: -20, y: -40 }, // down-right
+      { x: 50, y: 0 },    // horizontal pan
+      { x: 0, y: 50 },    // vertical pan
+    ];
+    
+    const panPattern = panPatterns[index % panPatterns.length];
+    
+    return {
+      type: "image" as const,
+      src: segment.src,
+      duration: duration,
+      // Cinematic Ken Burns effect with stronger zoom
+      transform: {
+        zoom: {
+          from: 1.0,
+          to: zoomIntensity,
+        },
+        pan: panPattern,
+      },
+      // Smooth fade in/out transitions
+      opacity: {
+        from: index === 0 ? 0 : 0.8, // Fade in
+        to: index === videoSegments.length - 1 ? 0 : 0.9, // Fade out
+      },
+      perspective: scene?.perspective,
+    };
+  });
 
-  // Build video payload with motion effects (Ken Burns zoom + fade)
+  // Add text overlay elements (captions)
+  const textElements = videoSegments.map((segment, index) => {
+    const scene = scenes[index % scenes.length];
+    if (!scene?.caption) return null;
+    
+    const duration = scene?.duration || 2.8;
+    
+    return {
+      type: "text" as const,
+      text: scene.caption,
+      duration: duration,
+      fontSize: 48,
+      fontColor: "#FFFFFF",
+      position: {
+        x: size.width / 2,
+        y: scene?.perspective === "wide" ? size.height - 120 : size.height / 2,
+      },
+      opacity: {
+        from: 0.7,
+        to: 0.7,
+      },
+    };
+  }).filter(Boolean) as any[];
+
+  // Build final payload with all cinematic elements
+  const totalDuration = videoSegments.reduce((sum, _, idx) => {
+    return sum + (scenes[idx % scenes.length]?.duration || 2.8);
+  }, 0);
+
   return {
     width: size.width,
     height: size.height,
@@ -79,29 +162,9 @@ export function buildVideoPayloadFromScenes(
     draft: false,
     scenes: [
       {
-        duration: safeDuration,
+        duration: totalDuration,
         "background-color": "#0b1020",
-        elements: videoSegments.map((segment, index) => ({
-          type: "image" as const,
-          src: segment.src,
-          duration: durationPerSegment,
-          // Ken Burns effect: zoom in from 1.0 to 1.15
-          transform: {
-            zoom: {
-              from: 1.0,
-              to: 1.15,
-            },
-            pan: {
-              x: (index % 2 === 0 ? 1 : -1) * 20, // Subtle pan left/right
-              y: (index % 3 === 0 ? 1 : -1) * 15, // Subtle pan up/down
-            },
-          },
-          // Fade in/out on transitions
-          opacity: {
-            from: index === 0 ? 0 : 1,
-            to: index === videoSegments.length - 1 ? 0 : 1,
-          },
-        })),
+        elements: [...elements, ...textElements],
       },
     ],
   };

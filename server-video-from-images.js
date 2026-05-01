@@ -53,7 +53,7 @@ async function loadCanvasImage(imagePath) {
 }
 
 /**
- * Render frame with zoom and pan effects
+ * Render frame with enhanced cinematic zoom and pan effects
  * @param {Canvas} canvas - Canvas object
  * @param {Image} image - Canvas image
  * @param {number} frameIndex - Frame index in sequence
@@ -62,7 +62,7 @@ async function loadCanvasImage(imagePath) {
  */
 function renderFrame(canvas, image, frameIndex, totalFrames, options = {}) {
   const ctx = canvas.getContext("2d");
-  const { enableZoom = true, enablePan = true, scaleEnd = 1.15 } = options;
+  const { enableZoom = true, enablePan = true, scaleEnd = 1.3, panX = 0, panY = 0 } = options;
 
   // Calculate animation progress (0 to 1)
   const progress = frameIndex / (totalFrames - 1);
@@ -71,20 +71,22 @@ function renderFrame(canvas, image, frameIndex, totalFrames, options = {}) {
   ctx.fillStyle = "rgba(0, 0, 0, 1)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Calculate zoom (1.0 to scaleEnd)
+  // Calculate cinematic zoom (1.0 to scaleEnd - now 1.3 for more dramatic effect)
   const scale = enableZoom ? 1 + (scaleEnd - 1) * progress : 1;
 
-  // Calculate pan offset
-  let panX = 0;
-  let panY = 0;
-  if (enablePan) {
-    panX = (canvas.width * 0.05) * Math.sin(progress * Math.PI);
-    panY = (canvas.height * 0.03) * Math.cos(progress * Math.PI);
+  // Calculate dynamic pan offset with smooth easing
+  let offsetX = 0;
+  let offsetY = 0;
+  if (enablePan && (panX !== 0 || panY !== 0)) {
+    // Use easing function for smoother pan movement
+    const easeProgress = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress; // Ease in-out quad
+    offsetX = panX * easeProgress;
+    offsetY = panY * easeProgress;
   }
 
-  // Center position
-  const centerX = canvas.width / 2 + panX;
-  const centerY = canvas.height / 2 + panY;
+  // Center position with pan offset
+  const centerX = canvas.width / 2 + offsetX;
+  const centerY = canvas.height / 2 + offsetY;
 
   // Calculate aspect ratios for proper fit
   const imageAspect = image.width / image.height;
@@ -108,6 +110,55 @@ function renderFrame(canvas, image, frameIndex, totalFrames, options = {}) {
 
   // Draw image centered
   ctx.drawImage(image, centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight);
+}
+
+/**
+ * Render text overlay with cinematic styling
+ * @param {Canvas} canvas - Canvas object
+ * @param {string} text - Text to render
+ * @param {number} frameIndex - Frame index in sequence
+ * @param {number} totalFrames - Total frames for this segment
+ * @param {Object} options - Text rendering options
+ */
+function renderTextOverlay(canvas, text, frameIndex, totalFrames, options = {}) {
+  const ctx = canvas.getContext("2d");
+  const {
+    fontSize = 48,
+    fontColor = "#FFFFFF",
+    x = canvas.width / 2,
+    y = canvas.height - 120,
+    fontFamily = "Arial, sans-serif",
+    opacity = 0.9,
+    duration = 2.8,
+  } = options;
+
+  // Fade in and out animation for text
+  const fadeInFrames = Math.ceil(totalFrames * 0.1); // 10% fade in
+  const fadeOutFrames = Math.ceil(totalFrames * 0.1); // 10% fade out
+  const holdFrames = totalFrames - fadeInFrames - fadeOutFrames;
+
+  let textOpacity = opacity;
+  if (frameIndex < fadeInFrames) {
+    textOpacity = opacity * (frameIndex / fadeInFrames);
+  } else if (frameIndex >= fadeInFrames + holdFrames) {
+    textOpacity = opacity * ((totalFrames - frameIndex) / fadeOutFrames);
+  }
+
+  // Add text shadow for depth
+  ctx.globalAlpha = textOpacity * 0.4;
+  ctx.fillStyle = "#000000";
+  ctx.font = `bold ${fontSize}px ${fontFamily}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x + 3, y + 3);
+
+  // Main text
+  ctx.globalAlpha = textOpacity;
+  ctx.fillStyle = fontColor;
+  ctx.fillText(text, x, y);
+
+  // Reset
+  ctx.globalAlpha = 1;
 }
 
 /**
@@ -172,11 +223,13 @@ export async function createVideoFromImages(imageUrls, outputPath, options = {})
     width = 1280,
     height = 720,
     fps = 30,
-    imageDuration = 3, // seconds per image
+    imageDuration = 2.8, // seconds per image (cinematic duration)
     transitionDuration = 0.8, // seconds for fade transition
     enableZoom = true,
     enablePan = true,
-    scaleEnd = 1.15,
+    scaleEnd = 1.3, // Increased zoom for more cinematic feel
+    panOffsets = [], // Array of {x, y} pan offsets for each image
+    captions = [], // Array of caption texts for each image
   } = options;
 
   if (!imageUrls || imageUrls.length < 2) {
@@ -225,7 +278,7 @@ export async function createVideoFromImages(imageUrls, outputPath, options = {})
     }
 
     // Step 3: Render animation frames
-    console.log("🎬 [VIDEO] Rendering animation frames...");
+    console.log("🎬 [VIDEO] Rendering cinematic frames...");
     const canvas = createCanvas(width, height);
     const imageFrames = Math.round(imageDuration * fps);
     const transitionFrames = Math.round(transitionDuration * fps);
@@ -237,14 +290,35 @@ export async function createVideoFromImages(imageUrls, outputPath, options = {})
     for (let imgIdx = 0; imgIdx < canvasImages.length; imgIdx++) {
       const currentImage = canvasImages[imgIdx];
       const nextImage = canvasImages[(imgIdx + 1) % canvasImages.length];
+      
+      // Get pan offset for this image (or use default pattern)
+      const panOffset = panOffsets[imgIdx] || {
+        x: [40, -40, 20, -20, 50, 0][imgIdx % 6],
+        y: [-20, 20, 40, -40, 0, 50][imgIdx % 6],
+      };
+      
+      const caption = captions[imgIdx];
 
-      // Render image frames with zoom/pan effect
+      // Render image frames with cinematic zoom/pan effect
       for (let frameIdx = 0; frameIdx < imageFrames; frameIdx++) {
         renderFrame(canvas, currentImage, frameIdx, imageFrames, {
           enableZoom,
           enablePan,
           scaleEnd,
+          panX: panOffset.x,
+          panY: panOffset.y,
         });
+
+        // Add text overlay if caption exists
+        if (caption) {
+          renderTextOverlay(canvas, caption, frameIdx, imageFrames, {
+            fontSize: Math.round(width / 30),
+            fontColor: "#FFFFFF",
+            x: width / 2,
+            y: height - Math.round(height * 0.15),
+            opacity: 0.85,
+          });
+        }
 
         const framePath = path.join(frameDir, `frame-${String(frameCount).padStart(6, "0")}.png`);
         const buffer = canvas.toBuffer("image/png");
@@ -269,7 +343,7 @@ export async function createVideoFromImages(imageUrls, outputPath, options = {})
     console.log(`✅ [VIDEO] Rendered ${frameCount} frames`);
 
     // Step 4: Encode frames to video with FFmpeg
-    console.log("🎥 [VIDEO] Encoding video with FFmpeg...");
+    console.log("🎥 [VIDEO] Encoding cinematic video with FFmpeg...");
 
     return new Promise((resolve, reject) => {
       const framePath = path.join(frameDir, "frame-%06d.png");
@@ -280,7 +354,7 @@ export async function createVideoFromImages(imageUrls, outputPath, options = {})
         .output(outputPath)
         .outputOptions(["-c:v libx264", "-pix_fmt yuv420p", "-crf 23"])
         .on("end", () => {
-          console.log("✅ [VIDEO] Video encoding complete");
+          console.log("✅ [VIDEO] Cinematic video encoding complete");
 
           // Cleanup temporary files
           try {

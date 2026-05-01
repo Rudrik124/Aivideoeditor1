@@ -203,7 +203,8 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
           transition={{ duration: 0.18 }}
         >
           <motion.div
-            className="w-full max-w-2xl bg-white rounded-[18px] shadow-[0_18px_45px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.02)] p-8 relative"
+            className="w-full max-w-2xl bg-white rounded-[18px] shadow-[0_18px_45px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.02)] p-8 relative pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
             initial={{ y: 12, scale: 0.97, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 12, scale: 0.97, opacity: 0 }}
@@ -320,7 +321,12 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form 
+              onSubmit={handleSubmit} 
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="space-y-4 pointer-events-auto"
+            >
               {/* Name Field - only for Sign Up */}
               <motion.div
                 initial={{ maxHeight: 0, opacity: 0, marginBottom: 0 }}
@@ -330,7 +336,7 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
                   marginBottom: mode === "signup" ? 16 : 0,
                 }}
                 transition={{ duration: 0.18 }}
-                className="overflow-hidden"
+                className="overflow-hidden pointer-events-auto"
               >
                 <label className="block text-xs font-medium text-gray-700 mb-2">
                   Full name
@@ -339,14 +345,18 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
                   placeholder="Jane Smith"
                   autoComplete="name"
-                  className="w-full h-12 rounded-lg border border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-black/10 px-4 text-sm font-normal transition-all"
+                  tabIndex={0}
+                  className="w-full h-12 rounded-lg border border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-black/10 px-4 text-sm font-normal transition-all cursor-text"
                 />
               </motion.div>
 
               {/* Email Field */}
-              <div>
+              <div className="pointer-events-auto">
                 <label className="block text-xs font-medium text-gray-700 mb-2">
                   Email
                 </label>
@@ -355,14 +365,18 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
                   placeholder="you@company.com"
                   autoComplete="email"
-                  className="w-full h-12 rounded-lg border border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-black/10 px-4 text-sm font-normal transition-all"
+                  tabIndex={0}
+                  className="w-full h-12 rounded-lg border border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-black/10 px-4 text-sm font-normal transition-all cursor-text"
                 />
               </div>
 
               {/* Password Field */}
-              <div>
+              <div className="pointer-events-auto">
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-xs font-medium text-gray-700">
                     Password
@@ -382,9 +396,13 @@ export function LoginModal({ isOpen, onClose, customMessage, customTitle }: Logi
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
                     placeholder="Min. 8 characters"
                     autoComplete="current-password"
-                    className="w-full h-12 rounded-lg border border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-black/10 px-4 text-sm font-normal transition-all pr-12"
+                    tabIndex={0}
+                    className="w-full h-12 rounded-lg border border-gray-300 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-black/10 px-4 text-sm font-normal transition-all pr-12 cursor-text"
                   />
                   <button
                     type="button"

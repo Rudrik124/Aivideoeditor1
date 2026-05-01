@@ -2,6 +2,8 @@ export type Scene = {
   visual: string;
   keywords: string;
   duration: number;
+  perspective?: "wide" | "close-up" | "top-view" | "detail";
+  caption?: string;
 };
 
 const STOPWORDS = new Set([
@@ -32,27 +34,6 @@ function extractKeywords(prompt: string): string[] {
   return out;
 }
 
-// Extract only 2-3 main keywords for image search
-function extractSearchKeywords(prompt: string, actionWord: string | null, locationWord: string | null): string {
-  const keywords = extractKeywords(prompt);
-  const mainKeywords: string[] = [];
-  
-  if (locationWord) mainKeywords.push(locationWord);
-  if (actionWord) {
-    const actionBase = actionWord.replace(/ing$/, '');
-    mainKeywords.push(actionBase);
-  }
-  
-  // Add remaining keywords (max 3 total)
-  for (const k of keywords) {
-    if (!mainKeywords.includes(k) && mainKeywords.length < 3) {
-      mainKeywords.push(k);
-    }
-  }
-  
-  return mainKeywords.slice(0, 3).join(' ') || 'technology';
-}
-
 function findAction(prompt: string): string | null {
   const m = prompt.match(/\b\w+ing(?: \w+){0,2}\b/i);
   return m ? m[0].toLowerCase() : null;
@@ -64,46 +45,78 @@ function findLocation(prompt: string): string | null {
   return m[1].split(/[.,;]\s*/)[0].trim().toLowerCase();
 }
 
+/**
+ * Generate 3 clean search queries for image fetching
+ * Returns human-readable search terms, not visual descriptions
+ * 
+ * Example:
+ * Input: "robot teaching students in classroom"
+ * Output: [
+ *   "classroom students",
+ *   "teacher teaching class", 
+ *   "students studying classroom"
+ * ]
+ */
 export function generateScenesFromPrompt(prompt: string): Scene[] {
   if (!prompt || typeof prompt !== 'string') return [];
   const normalized = prompt.trim();
   
   const action = findAction(normalized);
   const location = findLocation(normalized);
-  
-  // Generate search-friendly keywords (2-3 main terms)
-  const searchKeywords = extractSearchKeywords(normalized, action, location);
-  
-  // Full keywords for visual descriptions
-  const keywordsArr = extractKeywords(normalized);
-  const subject = keywordsArr.slice(0, 3).join(' ') || normalized.toLowerCase();
+  const keywords = extractKeywords(normalized);
+  const subject = keywords.slice(0, 2).join(' ') || 'people';
 
-  // Scene 1: main subject performing primary action or shown in setting
-  const scene1Visual = action
-    ? `${subject} ${action}`
-    : location
-    ? `${subject} in ${location}`
-    : `${subject} in a realistic setting`;
+  // Generate 3 clean search queries (not visual descriptions)
+  const queries: string[] = [];
 
-  // Scene 2: interaction or close-up detail
-  const actorHints = ['student', 'students', 'people', 'person', 'child', 'children', 'man', 'woman', 'group'];
-  const actor = keywordsArr.find(k => actorHints.includes(k));
-  const scene2Visual = actor
-    ? `${actor} interacting with ${subject}`
-    : action
-    ? `close-up of ${subject} ${action}`
-    : `close-up of ${subject} with natural detail`;
+  // Query 1: Location + Subject
+  if (location) {
+    queries.push(`${location} ${subject}`);
+  } else {
+    queries.push(subject);
+  }
 
-  // Scene 3: wide/environment shot
-  const scene3Visual = location
-    ? `wide view of ${subject} in ${location}`
-    : `wide view showing ${subject} within its environment`;
+  // Query 2: Action + Subject
+  if (action) {
+    const actionBase = action.replace(/ing$/, '');
+    queries.push(`${actionBase} ${subject}`);
+  } else if (keywords.length > 1) {
+    queries.push(`${keywords[0]} ${keywords[1]}`);
+  } else {
+    queries.push(`${subject} activity`);
+  }
 
-  return [
-    { visual: scene1Visual.toLowerCase(), keywords: searchKeywords, duration: 5 },
-    { visual: scene2Visual.toLowerCase(), keywords: searchKeywords, duration: 5 },
-    { visual: scene3Visual.toLowerCase(), keywords: searchKeywords, duration: 5 }
-  ];
+  // Query 3: Varied combination
+  if (location && action) {
+    const actionBase = action.replace(/ing$/, '');
+    queries.push(`${subject} ${actionBase} ${location}`);
+  } else if (keywords.length > 2) {
+    queries.push(`${keywords.slice(0, 3).join(' ')}`);
+  } else if (location) {
+    queries.push(`${subject} in ${location}`);
+  } else {
+    queries.push(`${subject} professional`);
+  }
+
+  // Remove duplicates and clean up
+  const uniqueQueries = [...new Set(queries)].slice(0, 3);
+
+  // Pad with defaults if needed
+  while (uniqueQueries.length < 3) {
+    uniqueQueries.push(subject);
+  }
+
+  console.log(`📋 [Scene Generation] Input: "${prompt}"`);
+  console.log(`📋 [Scene Generation] Generated 3 search queries:`);
+  uniqueQueries.forEach((q, i) => console.log(`  ${i + 1}. "${q}"`));
+
+  return uniqueQueries.map((query, index) => ({
+    visual: query, // Store the search query as visual
+    keywords: query, // Use query for image search
+    duration: 2.8,
+    perspective: index === 0 ? 'wide' : index === 1 ? 'close-up' : 'detail',
+    caption: `Scene ${index + 1}`
+  }));
 }
 
 export default generateScenesFromPrompt;

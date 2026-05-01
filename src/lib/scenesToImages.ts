@@ -9,22 +9,38 @@ export type Scene = {
   duration: number;
 };
 
+// Test mode: use hardcoded high-quality images if true
+const USE_STATIC_IMAGES = process.env.VITE_USE_STATIC_IMAGES === "true" || process.env.USE_STATIC_IMAGES === "true";
+
+// Static high-quality Unsplash images for testing
+const STATIC_TEST_IMAGES = [
+  "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1280&h=720&fit=crop",
+  "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1280&h=720&fit=crop",
+  "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1280&h=720&fit=crop"
+];
+
+/**
+ * Convert scenes to image URLs by fetching from Unsplash API
+ * @param scenes - Array of scenes with search keywords
+ * @returns Array of video segments with image URLs
+ */
 export function scenesToImages(scenes: Scene[]): VideoSegment[] {
+  if (USE_STATIC_IMAGES) {
+    console.log("🧪 [TEST MODE] Using static hardcoded images");
+    return scenes.map((scene, index) => ({
+      type: "image" as const,
+      src: STATIC_TEST_IMAGES[index % STATIC_TEST_IMAGES.length],
+      duration: scene.duration
+    }));
+  }
+
   return scenes.map((scene, index) => {
-    const keywords = (scene.keywords || "technology").replace(/[\s,]+/g, "");
-    const cleanKeywords = (scene.keywords || "technology").replace(/[\s,]+/g, "-");
+    const query = (scene.keywords || "technology").trim();
     
-    // Alternate between Unsplash (primary) and picsum (fallback) per scene
-    // This ensures if one source fails, we still get variety
-    const useUnsplash = index % 2 === 0;
-    
-    const src = useUnsplash
-      ? `https://source.unsplash.com/featured/1600x900/?${keywords}`
-      : `https://picsum.photos/seed/${cleanKeywords}/1600/900`;
-    
+    // Return a placeholder that will be resolved server-side
     return {
       type: "image" as const,
-      src,
+      src: `SEARCH_QUERY:${query}:${index}`, // Mark for server-side processing
       duration: scene.duration
     };
   });
